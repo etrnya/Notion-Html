@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>實驗室評鑑與認證倒數計時器 (Notion Widget)</title>
+  <style>
+    :root {
+      --bg-color: #191919;
+      --card-bg: #202020;
+      --border-color: #2f2f2f;
+      --text-color: #e3e3e3;
+      --text-secondary: #8e8e8e;
+      --accent-color: #1f6feb;
+      --safe-color: #2ea043;
+      --warning-color: #d18b00;
+      --danger-color: #f85149;
+      --input-bg: #2d2d2d;
+      --button-bg: #3c3c3c;
+      --shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg-color: #ffffff;
+        --card-bg: #f9f9f9;
+        --border-color: #e9e9e9;
+        --text-color: #37352f;
+        --text-secondary: #7f7f7f;
+        --accent-color: #235fc5;
+        --safe-color: #0f7b4b;
+        --warning-color: #b78a00;
+        --danger-color: #d12420;
+        --input-bg: #ffffff;
+        --button-bg: #eaeaea;
+        --shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: transparent;
+      color: var(--text-color);
+      padding: 6px;
+      display: block;
+    }
+
+    .widget-container {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      width: 100%;
+      max-width: 100%;
+      margin: 0 auto;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .widget-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border-color);
+      background: linear-gradient(135deg, var(--card-bg), var(--border-color));
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .widget-icon {
+      font-size: 22px;
+    }
+
+    .widget-title {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .widget-subtitle {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 1px;
+    }
+
+    /* 雲端同步面板 */
+    .sync-panel {
+      display: none;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+      background-color: rgba(0, 0, 0, 0.12);
+      flex-direction: column;
+      gap: 8px;
+      animation: slideDown 0.2s ease;
+    }
+
+    .sync-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .sync-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .sync-indicator {
+      font-size: 11px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border-color);
+      background-color: rgba(0, 0, 0, 0.05);
+    }
+
+    .sync-indicator:hover {
+      background-color: var(--button-bg);
+      color: var(--text-color);
+    }
+
+    .countdown-list {
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .countdown-item {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px;
+      background-color: rgba(255, 255, 255, 0.01);
+    }
+
+    .item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+    }
+
+    .item-title {
+      font-size: 13px;
+      font-weight: 600;
+      word-break: break-all;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .item-days {
+      font-size: 20px;
+      font-weight: 800;
+      display: flex;
+      align-items: baseline;
+      gap: 1px;
+      flex-shrink: 0;
+    }
+
+    .unit {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .item-date {
+      font-size: 10px;
+      color: var(--text-secondary);
+    }
+
+    .progress-bar-container {
+      width: 100%;
+      height: 6px;
+      background-color: var(--border-color);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 3px;
+      transition: width 0.5s ease-out;
+    }
+
+    .item-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 4px;
+      border-top: 1px dashed var(--border-color);
+      padding-top: 6px;
+    }
+
+    .action-group-left {
+      display: flex;
+      gap: 4px;
+    }
+
+    .action-group-right {
+      display: flex;
+      gap: 6px;
+    }
+
+    .btn-action {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 10.5px;
+      cursor: pointer;
+      padding: 2px 5px;
+      border-radius: 3px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-action:hover {
+      color: var(--text-color);
+      background-color: var(--button-bg);
+    }
+
+    .edit-fields {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .add-form {
+      padding: 16px;
+      border-top: 1px solid var(--border-color);
+      background-color: rgba(0, 0, 0, 0.05);
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .input-field {
+      flex: 1;
+      padding: 8px 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background-color: var(--input-bg);
+      color: var(--text-color);
+      font-size: 12px;
+      outline: none;
+    }
+
+    .btn {
+      padding: 8px 12px;
+      border: none;
+      border-radius: 4px;
+      background-color: var(--accent-color);
+      color: white;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+    }
+
+    .btn:hover {
+      opacity: 0.9;
+    }
+
+    .btn-toggle-form {
+      background: none;
+      border: 1px solid var(--border-color);
+      color: var(--text-color);
+      font-size: 11px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-toggle-form:hover {
+      background-color: var(--button-bg);
+    }
+
+    .btn-save {
+      background-color: var(--accent-color);
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-save:hover {
+      opacity: 0.9;
+    }
+
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="widget-container" id="countdownWidget">
+    <div class="widget-header">
+      <div class="header-left">
+        <span class="widget-icon">⏰</span>
+        <div>
+          <h1 class="widget-title">實驗室關鍵里程碑倒數</h1>
+          <p class="widget-subtitle">TFDA評鑑與認證準備時程追蹤</p>
+        </div>
+      </div>
+      <div class="header-actions" style="display:flex; gap:6px; align-items:center;">
+        <div class="sync-indicator" id="syncIndicator" onclick="toggleSyncPanel()">☁️ 本機模式</div>
+        <button class="btn-toggle-form" onclick="toggleForm()">管理里程碑</button>
+        <button class="btn-toggle-form" id="btnReset" onclick="confirmReset()">還原預設</button>
+      </div>
+    </div>
+
+    <!-- 雲端同步設定面板 -->
+    <div class="sync-panel" id="syncPanel">
+      <div class="sync-label">Google Sheets GAS 雲端同步網址</div>
+      <div class="sync-row">
+        <input type="text" id="syncUrlInput" class="input-field" placeholder="貼上部署後的 GAS Web App URL...">
+        <button class="btn-save" onclick="saveSyncUrl()">儲存</button>
+      </div>
+      <div id="syncStatusText" style="font-size: 10px; color: var(--text-secondary); margin-top: 2px;">
+        ※ 未填寫時將使用瀏覽器本機儲存 (LocalStorage)。
+      </div>
+    </div>
+
+    <div class="countdown-list" id="countdownList">
+      <!-- 倒數項目將在此處動態渲染 -->
+    </div>
+
+    <!-- 新增/管理里程碑表單 -->
+    <div class="add-form" id="addForm">
+      <div class="form-row">
+        <input type="text" id="newTitle" class="input-field" placeholder="里程碑名稱，例如: TFDA實地查核">
+      </div>
+      <div class="form-row">
+        <input type="date" id="newDate" class="input-field">
+        <button class="btn" onclick="addMilestone()">新增項目</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const DEFAULT_MILESTONES = [
+      { id: 'ms1', title: 'TFDA 實地查核 (東興實驗室)', targetDate: '2026-07-20', startDate: '2026-01-01' },
+      { id: 'ms2', title: 'TFDA能力試驗 (食品中孔雀綠、結晶紫)', targetDate: '2026-09-01', startDate: '2026-06-01' },
+      { id: 'ms3', title: '內稽準備工作與報告整理', targetDate: '2026-08-15', startDate: '2026-05-15' }
+    ];
+
+    let milestones = [];
+    let editingId = null;
+    let confirmDeleteId = null;
+    let confirmResetState = false;
+    let syncUrl = "";
+
+    function init() {
+      // 1. 讀取同步網址
+      try {
+        syncUrl = localStorage.getItem('sync_url_milestones') || "";
+        document.getElementById('syncUrlInput').value = syncUrl;
+      } catch (e) {
+        console.warn("無法讀取 LocalStorage 同步設定");
+      }
+
+      // 2. 載入數據
+      loadData();
+    }
+
+    function saveLocal() {
+      try {
+        localStorage.setItem('lab_milestones', JSON.stringify(milestones));
+      } catch (e) {
+        console.warn("無法寫入 LocalStorage 快取");
+      }
+    }
+
+    function loadLocal() {
+      try {
+        const stored = localStorage.getItem('lab_milestones');
+        if (stored) {
+          milestones = JSON.parse(stored);
+        } else {
+          milestones = [...DEFAULT_MILESTONES];
+          saveLocal();
+        }
+      } catch (e) {
+        milestones = [...DEFAULT_MILESTONES];
+      }
+    }
+
+    // 雲端數據載入 (GET)
+    async function loadData() {
+      if (syncUrl) {
+        updateSyncStatus('syncing', '🔄 正在載入雲端...');
+        try {
+          const response = await fetch(syncUrl);
+          if (!response.ok) throw new Error("HTTP " + response.status);
+          const data = await response.json();
+          
+          milestones = data.length > 0 ? data : [...DEFAULT_MILESTONES];
+          saveLocal();
+          updateSyncStatus('synced', '🟢 雲端同步');
+        } catch (e) {
+          console.error("載入雲端數據失敗:", e);
+          updateSyncStatus('error', '⚠️ 同步失敗 (點擊重試)');
+          loadLocal();
+        }
+      } else {
+        updateSyncStatus('local', '☁️ 本機模式');
+        loadLocal();
+      }
+      render();
+    }
+
+    // 雲端數據同步 (POST)
+    async function syncData() {
+      saveLocal();
+      if (syncUrl) {
+        updateSyncStatus('syncing', '🔄 正在同步...');
+        try {
+          const response = await fetch(syncUrl, {
+            method: "POST",
+            mode: "cors",
+            headers: {
+              "Content-Type": "text/plain"
+            },
+            body: JSON.stringify(milestones)
+          });
+          const res = await response.json();
+          if (res.status === 'success') {
+            updateSyncStatus('synced', '🟢 雲端同步');
+          } else {
+            throw new Error(res.message);
+          }
+        } catch (e) {
+          console.error("寫入雲端數據失敗:", e);
+          updateSyncStatus('error', '⚠️ 同步失敗 (點擊重試)');
+        }
+      }
+    }
+
+    function toggleSyncPanel() {
+      const panel = document.getElementById('syncPanel');
+      panel.style.display = panel.style.display === 'flex' ? 'none' : 'flex';
+    }
+
+    function saveSyncUrl() {
+      const val = document.getElementById('syncUrlInput').value.trim();
+      syncUrl = val;
+      try {
+        localStorage.setItem('sync_url_milestones', syncUrl);
+      } catch (e) {
+        console.warn("無法寫入 LocalStorage 同步網址");
+      }
+      toggleSyncPanel();
+      loadData();
+    }
+
+    function updateSyncStatus(status, text) {
+      const indicator = document.getElementById('syncIndicator');
+      const statusText = document.getElementById('syncStatusText');
+      
+      indicator.innerText = text;
+      statusText.innerText = "目前狀態: " + text;
+
+      if (status === 'synced') {
+        indicator.style.color = 'var(--safe-color)';
+        indicator.style.borderColor = 'rgba(46, 160, 67, 0.3)';
+      } else if (status === 'syncing') {
+        indicator.style.color = 'var(--warning-color)';
+        indicator.style.borderColor = 'rgba(241, 224, 90, 0.3)';
+      } else if (status === 'error') {
+        indicator.style.color = 'var(--danger-color)';
+        indicator.style.borderColor = 'rgba(248, 81, 73, 0.3)';
+      } else {
+        indicator.style.color = 'var(--text-secondary)';
+        indicator.style.borderColor = 'var(--border-color)';
+      }
+    }
+
+    function confirmReset() {
+      const btn = document.getElementById('btnReset');
+      if (!confirmResetState) {
+        confirmResetState = true;
+        btn.innerText = '⚠️ 確定還原?';
+        btn.style.borderColor = 'var(--danger-color)';
+        btn.style.color = 'var(--danger-color)';
+        
+        setTimeout(() => {
+          if (confirmResetState) {
+            confirmResetState = false;
+            btn.innerText = '還原預設';
+            btn.style.borderColor = 'var(--border-color)';
+            btn.style.color = 'var(--text-color)';
+          }
+        }, 3000);
+      } else {
+        confirmResetState = false;
+        milestones = JSON.parse(JSON.stringify(DEFAULT_MILESTONES));
+        editingId = null;
+        syncData();
+        render();
+        btn.innerText = '還原預設';
+        btn.style.borderColor = 'var(--border-color)';
+        btn.style.color = 'var(--text-color)';
+      }
+    }
+
+    function toggleForm() {
+      const form = document.getElementById('addForm');
+      form.style.display = form.style.display === 'flex' ? 'none' : 'flex';
+    }
+
+    function addMilestone() {
+      const title = document.getElementById('newTitle').value.trim();
+      const date = document.getElementById('newDate').value;
+
+      if (!title || !date) {
+        alert('請填寫完整名稱與日期！');
+        return;
+      }
+
+      const todayStr = new Date().toISOString().split('T')[0];
+      const newMs = {
+        id: 'ms_' + Date.now(),
+        title: title,
+        targetDate: date,
+        startDate: todayStr
+      };
+
+      milestones.push(newMs);
+      syncData();
+      render();
+
+      document.getElementById('newTitle').value = '';
+      document.getElementById('newDate').value = '';
+      toggleForm();
+    }
+
+    function handleDeleteClick(id) {
+      if (confirmDeleteId !== id) {
+        confirmDeleteId = id;
+        render();
+        
+        setTimeout(() => {
+          if (confirmDeleteId === id) {
+            confirmDeleteId = null;
+            render();
+          }
+        }, 3000);
+      } else {
+        confirmDeleteId = null;
+        milestones = milestones.filter(ms => ms.id !== id);
+        if (editingId === id) editingId = null;
+        syncData();
+        render();
+      }
+    }
+
+    function moveItem(index, direction) {
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= milestones.length) return;
+      
+      const temp = milestones[index];
+      milestones[index] = milestones[targetIndex];
+      milestones[targetIndex] = temp;
+      
+      syncData();
+      render();
+    }
+
+    function toggleEdit(id) {
+      if (editingId === id) {
+        const inputTitle = document.getElementById(`editTitle_${id}`).value.trim();
+        const inputDate = document.getElementById(`editDate_${id}`).value;
+
+        if (!inputTitle || !inputDate) {
+          alert('名稱或日期不能為空！');
+          return;
+        }
+
+        const ms = milestones.find(m => m.id === id);
+        if (ms) {
+          ms.title = inputTitle;
+          ms.targetDate = inputDate;
+        }
+        editingId = null;
+        syncData();
+        render();
+      } else {
+        editingId = id;
+        render();
+      }
+    }
+
+    function cancelEdit() {
+      editingId = null;
+      render();
+    }
+
+    function render() {
+      const container = document.getElementById('countdownList');
+      container.innerHTML = '';
+
+      const today = new Date();
+      today.setHours(0,0,0,0);
+
+      milestones.forEach((ms, index) => {
+        const item = document.createElement('div');
+        item.className = 'countdown-item';
+
+        if (editingId === ms.id) {
+          item.innerHTML = `
+            <div class="edit-fields">
+              <input type="text" id="editTitle_${ms.id}" class="input-field" value="${ms.title}">
+              <input type="date" id="editDate_${ms.id}" class="input-field" value="${ms.targetDate}">
+            </div>
+            <div class="item-actions">
+              <div class="action-group-left">
+                <span class="item-date">正在修改項目...</span>
+              </div>
+              <div class="action-group-right">
+                <button class="btn-action" style="color: var(--safe-color); font-weight: bold;" onclick="toggleEdit('${ms.id}')">儲存</button>
+                <button class="btn-action" onclick="cancelEdit()">取消</button>
+              </div>
+            </div>
+          `;
+        } else {
+          const target = new Date(ms.targetDate);
+          target.setHours(0,0,0,0);
+          
+          const start = new Date(ms.startDate);
+          start.setHours(0,0,0,0);
+
+          const diffTime = target.getTime() - today.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+          const totalDuration = target.getTime() - start.getTime();
+          const elapsed = today.getTime() - start.getTime();
+          let progress = 0;
+          
+          if (totalDuration > 0) {
+            progress = Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
+          }
+
+          let statusColor = 'var(--safe-color)';
+          let daysText = '';
+          
+          if (diffDays < 0) {
+            statusColor = 'var(--text-secondary)';
+            daysText = `<span style="color: var(--text-secondary)">已過期</span>`;
+          } else if (diffDays === 0) {
+            statusColor = 'var(--danger-color)';
+            daysText = `<span style="color: var(--danger-color)">今天</span>`;
+          } else {
+            if (diffDays <= 7) {
+              statusColor = 'var(--danger-color)';
+            } else if (diffDays <= 30) {
+              statusColor = 'var(--warning-color)';
+            }
+            daysText = `<span style="color: ${statusColor}">${diffDays}</span> <span class="unit">天</span>`;
+          }
+
+          const isFirst = index === 0;
+          const isLast = index === milestones.length - 1;
+
+          const isDeleting = confirmDeleteId === ms.id;
+          const deleteBtnText = isDeleting ? '⚠️ 確定刪除?' : '🗑️ 刪除';
+          const deleteBtnStyle = isDeleting ? 'style="color: var(--danger-color); font-weight: bold;"' : '';
+
+          item.innerHTML = `
+            <div class="item-header">
+              <span class="item-title" title="${ms.title}">${ms.title}</span>
+              <span class="item-days">${daysText}</span>
+            </div>
+            <div class="progress-bar-container">
+              <div class="progress-bar-fill" style="width: ${progress}%; background-color: ${statusColor}"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span class="item-date">🎯 目標日: ${ms.targetDate}</span>
+            </div>
+            <div class="item-actions">
+              <div class="action-group-left">
+                <button class="btn-action" ${isFirst ? 'style="opacity:0.3; cursor:not-allowed;" disabled' : ''} onclick="moveItem(${index}, -1)">▲ 上移</button>
+                <button class="btn-action" ${isLast ? 'style="opacity:0.3; cursor:not-allowed;" disabled' : ''} onclick="moveItem(${index}, 1)">▼ 下移</button>
+              </div>
+              <div class="action-group-right">
+                <button class="btn-action" onclick="toggleEdit('${ms.id}')">✏️ 編輯</button>
+                <button class="btn-action btn-delete" ${deleteBtnStyle} onclick="handleDeleteClick('${ms.id}')">${deleteBtnText}</button>
+              </div>
+            </div>
+          `;
+        }
+
+        container.appendChild(item);
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>

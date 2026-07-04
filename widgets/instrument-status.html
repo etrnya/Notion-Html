@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>實驗室儀器運作狀態看板 (Notion Widget)</title>
+  <style>
+    :root {
+      --bg-color: #191919;
+      --card-bg: #202020;
+      --border-color: #2f2f2f;
+      --text-color: #e3e3e3;
+      --text-secondary: #8e8e8e;
+      --online-color: #2ea043;
+      --maintenance-color: #f1e05a;
+      --issue-color: #f85149;
+      --accent-color: #1f6feb;
+      --button-bg: #2d2d2d;
+      --input-bg: #2d2d2d;
+      --shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg-color: #ffffff;
+        --card-bg: #f9f9f9;
+        --border-color: #e9e9e9;
+        --text-color: #37352f;
+        --text-secondary: #7f7f7f;
+        --online-color: #0f7b4b;
+        --maintenance-color: #b78a00;
+        --issue-color: #d12420;
+        --accent-color: #235fc5;
+        --button-bg: #eaeaea;
+        --input-bg: #ffffff;
+        --shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: transparent;
+      color: var(--text-color);
+      padding: 6px;
+      display: block;
+    }
+
+    .widget-container {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      width: 100%;
+      max-width: 100%;
+      margin: 0 auto;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .widget-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border-color);
+      background: linear-gradient(135deg, var(--card-bg), var(--border-color));
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .widget-icon {
+      font-size: 22px;
+    }
+
+    .widget-title {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .widget-subtitle {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 1px;
+    }
+
+    .btn-header {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 11px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border-color);
+      transition: all 0.2s ease;
+    }
+
+    .btn-header:hover {
+      color: var(--text-color);
+      background-color: var(--button-bg);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    /* 雲端同步面板 */
+    .sync-panel {
+      display: none;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+      background-color: rgba(0, 0, 0, 0.12);
+      flex-direction: column;
+      gap: 8px;
+      animation: slideDown 0.2s ease;
+    }
+
+    .sync-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .sync-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .sync-indicator {
+      font-size: 11px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border-color);
+      background-color: rgba(0, 0, 0, 0.05);
+    }
+
+    .sync-indicator:hover {
+      background-color: var(--button-bg);
+      color: var(--text-color);
+    }
+
+    /* 儀器列表 */
+    .instrument-list {
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .instrument-card {
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background-color: rgba(255, 255, 255, 0.01);
+      transition: all 0.2s ease;
+    }
+
+    .instrument-card:hover {
+      border-color: var(--text-secondary);
+    }
+
+    .card-main {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .info-section {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .inst-name {
+      font-size: 13.5px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .inst-meta {
+      font-size: 11px;
+      color: var(--text-secondary);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .inst-meta span {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .status-section {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .status-badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .status-online {
+      background-color: rgba(46, 160, 67, 0.15);
+      color: var(--online-color);
+      border: 1px solid rgba(46, 160, 67, 0.3);
+    }
+
+    .status-maintenance {
+      background-color: rgba(241, 224, 90, 0.15);
+      color: var(--maintenance-color);
+      border: 1px solid rgba(241, 224, 90, 0.3);
+    }
+
+    .status-issue {
+      background-color: rgba(248, 81, 73, 0.15);
+      color: var(--issue-color);
+      border: 1px solid rgba(248, 81, 73, 0.3);
+    }
+
+    .status-selector {
+      background-color: var(--button-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      color: var(--text-color);
+      font-size: 10px;
+      padding: 2px 4px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .card-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      border-top: 1px dashed var(--border-color);
+      padding-top: 6px;
+      margin-top: 4px;
+    }
+
+    .btn-card-action {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 10px;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 3px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-card-action:hover {
+      color: var(--text-color);
+      background-color: var(--button-bg);
+    }
+
+    .edit-fields {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      width: 100%;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .input-label {
+      font-size: 9px;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .input-field {
+      padding: 6px 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background-color: var(--input-bg);
+      color: var(--text-color);
+      font-size: 12px;
+      outline: none;
+      width: 100%;
+    }
+
+    .input-field:focus {
+      border-color: var(--accent-color);
+    }
+
+    .btn-save {
+      background-color: var(--accent-color);
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-save:hover {
+      opacity: 0.9;
+    }
+
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="widget-container" id="statusWidget">
+    <div class="widget-header">
+      <div class="header-left">
+        <span class="widget-icon">🖥️</span>
+        <div>
+          <h1 class="widget-title">儀器運作狀態看板</h1>
+          <p class="widget-subtitle">動藥組關鍵分析儀器即時監控</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div class="sync-indicator" id="syncIndicator" onclick="toggleSyncPanel()">☁️ 本機模式</div>
+        <button class="btn-header" onclick="addNewInstrument()">新增儀器</button>
+        <button class="btn-header" id="btnReset" onclick="confirmReset()">還原預設</button>
+      </div>
+    </div>
+
+    <!-- 雲端同步設定面板 -->
+    <div class="sync-panel" id="syncPanel">
+      <div class="sync-label">Google Sheets GAS 雲端同步網址</div>
+      <div class="sync-row">
+        <input type="text" id="syncUrlInput" class="input-field" placeholder="貼上部署後的 GAS Web App URL...">
+        <button class="btn-save" onclick="saveSyncUrl()">儲存</button>
+      </div>
+      <div id="syncStatusText" style="font-size: 10px; color: var(--text-secondary); margin-top: 2px;">
+        ※ 未填寫時將使用瀏覽器本機儲存 (LocalStorage)。
+      </div>
+    </div>
+
+    <div class="instrument-list" id="instrumentList">
+      <!-- 儀器卡片會動態生成於此 -->
+    </div>
+  </div>
+
+  <script>
+    const DEFAULT_INSTRUMENTS = [
+      { id: 'inst1', name: 'LC-MS/MS (新55)', status: 'online', user: '廖老師組-Willy', note: '正常運作中' },
+      { id: 'inst2', name: 'LC-MS/MS (QTRAP2)', status: 'maintenance', user: 'Fred (維修廠商)', note: '7/22 預約保養更換針座' },
+      { id: 'inst3', name: 'Orbitrap QE (質譜儀)', status: 'online', user: '項晴', note: '目前跑2%移動相' },
+      { id: 'inst4', name: 'GC-MS/MS (農藥組)', status: 'online', user: '無人上機', note: '正常運作' },
+      { id: 'inst5', name: 'Nitrogen Generator (氮氣機)', status: 'issue', user: '廠商維修中', note: '風扇震動過大待檢修' }
+    ];
+
+    let instruments = [];
+    let editingId = null;
+    let confirmDeleteId = null;
+    let confirmResetState = false;
+    let syncUrl = "";
+
+    function init() {
+      // 1. 讀取同步網址
+      try {
+        syncUrl = localStorage.getItem('sync_url_instruments') || "";
+        document.getElementById('syncUrlInput').value = syncUrl;
+      } catch (e) {
+        console.warn("無法讀取 LocalStorage 同步設定");
+      }
+
+      // 2. 載入數據
+      loadData();
+    }
+
+    function saveLocal() {
+      try {
+        localStorage.setItem('lab_instruments', JSON.stringify(instruments));
+      } catch (e) {
+        console.warn("無法寫入 LocalStorage 快取");
+      }
+    }
+
+    function loadLocal() {
+      try {
+        const stored = localStorage.getItem('lab_instruments');
+        if (stored) {
+          instruments = JSON.parse(stored);
+        } else {
+          instruments = [...DEFAULT_INSTRUMENTS];
+          saveLocal();
+        }
+      } catch (e) {
+        instruments = [...DEFAULT_INSTRUMENTS];
+      }
+    }
+
+    // 雲端數據加載 (GET)
+    async function loadData() {
+      if (syncUrl) {
+        updateSyncStatus('syncing', '🔄 正在載入雲端...');
+        try {
+          const response = await fetch(syncUrl);
+          if (!response.ok) throw new Error("HTTP " + response.status);
+          const data = await response.json();
+          
+          instruments = data.length > 0 ? data : [...DEFAULT_INSTRUMENTS];
+          saveLocal(); // 儲存本機快取
+          updateSyncStatus('synced', '🟢 雲端同步');
+        } catch (e) {
+          console.error("載入雲端數據失敗:", e);
+          updateSyncStatus('error', '⚠️ 同步失敗 (點擊重試)');
+          loadLocal(); // 載入本機快取作為備援
+        }
+      } else {
+        updateSyncStatus('local', '☁️ 本機模式');
+        loadLocal();
+      }
+      render();
+    }
+
+    // 雲端數據同步 (POST)
+    async function syncData() {
+      saveLocal(); // 先存本機以防萬一
+      if (syncUrl) {
+        updateSyncStatus('syncing', '🔄 正在同步...');
+        try {
+          // 巧妙技巧：使用 text/plain 作為 Content-Type 可以免除瀏覽器在 iframe 中的 CORS Preflight OPTIONS 預檢請求，
+          // GAS Web App 依然可以讀取 postData.contents 內部的 JSON。
+          const response = await fetch(syncUrl, {
+            method: "POST",
+            mode: "cors",
+            headers: {
+              "Content-Type": "text/plain"
+            },
+            body: JSON.stringify(instruments)
+          });
+          const res = await response.json();
+          if (res.status === 'success') {
+            updateSyncStatus('synced', '🟢 雲端同步');
+          } else {
+            throw new Error(res.message);
+          }
+        } catch (e) {
+          console.error("寫入雲端數據失敗:", e);
+          updateSyncStatus('error', '⚠️ 同步失敗 (點擊重試)');
+        }
+      }
+    }
+
+    function toggleSyncPanel() {
+      const panel = document.getElementById('syncPanel');
+      panel.style.display = panel.style.display === 'flex' ? 'none' : 'flex';
+    }
+
+    function saveSyncUrl() {
+      const val = document.getElementById('syncUrlInput').value.trim();
+      syncUrl = val;
+      try {
+        localStorage.setItem('sync_url_instruments', syncUrl);
+      } catch (e) {
+        console.warn("無法寫入 LocalStorage 同步網址");
+      }
+      toggleSyncPanel();
+      loadData();
+    }
+
+    function updateSyncStatus(status, text) {
+      const indicator = document.getElementById('syncIndicator');
+      const statusText = document.getElementById('syncStatusText');
+      
+      indicator.innerText = text;
+      statusText.innerText = "目前狀態: " + text;
+
+      if (status === 'synced') {
+        indicator.style.color = 'var(--online-color)';
+        indicator.style.borderColor = 'rgba(46, 160, 67, 0.3)';
+      } else if (status === 'syncing') {
+        indicator.style.color = 'var(--maintenance-color)';
+        indicator.style.borderColor = 'rgba(241, 224, 90, 0.3)';
+      } else if (status === 'error') {
+        indicator.style.color = 'var(--issue-color)';
+        indicator.style.borderColor = 'rgba(248, 81, 73, 0.3)';
+      } else {
+        indicator.style.color = 'var(--text-secondary)';
+        indicator.style.borderColor = 'var(--border-color)';
+      }
+    }
+
+    function confirmReset() {
+      const btn = document.getElementById('btnReset');
+      if (!confirmResetState) {
+        confirmResetState = true;
+        btn.innerText = '⚠️ 確定還原?';
+        btn.style.borderColor = 'var(--issue-color)';
+        btn.style.color = 'var(--issue-color)';
+        
+        setTimeout(() => {
+          if (confirmResetState) {
+            confirmResetState = false;
+            btn.innerText = '還原預設';
+            btn.style.borderColor = 'var(--border-color)';
+            btn.style.color = 'var(--text-secondary)';
+          }
+        }, 3000);
+      } else {
+        confirmResetState = false;
+        instruments = JSON.parse(JSON.stringify(DEFAULT_INSTRUMENTS));
+        editingId = null;
+        syncData();
+        render();
+        btn.innerText = '還原預設';
+        btn.style.borderColor = 'var(--border-color)';
+        btn.style.color = 'var(--text-secondary)';
+      }
+    }
+
+    function toggleEdit(id) {
+      if (editingId === id) {
+        const nameVal = document.getElementById(`editName_${id}`).value.trim();
+        const userVal = document.getElementById(`editUser_${id}`).value.trim();
+        const noteVal = document.getElementById(`editNote_${id}`).value.trim();
+
+        if (!nameVal) {
+          alert('儀器名稱不能為空！');
+          return;
+        }
+
+        const inst = instruments.find(i => i.id === id);
+        if (inst) {
+          inst.name = nameVal;
+          inst.user = userVal || '無人使用';
+          inst.note = noteVal || '無特別標記';
+        }
+        editingId = null;
+        syncData();
+        render();
+      } else {
+        editingId = id;
+        render();
+      }
+    }
+
+    function cancelEdit() {
+      editingId = null;
+      render();
+    }
+
+    function addNewInstrument() {
+      const newId = 'inst_' + Date.now();
+      const newInst = {
+        id: newId,
+        name: '未命名儀器',
+        status: 'online',
+        user: '無人上機',
+        note: '正常運作中'
+      };
+      instruments.push(newInst);
+      editingId = newId;
+      syncData();
+      render();
+    }
+
+    function handleDeleteClick(id) {
+      if (confirmDeleteId !== id) {
+        confirmDeleteId = id;
+        render();
+        
+        setTimeout(() => {
+          if (confirmDeleteId === id) {
+            confirmDeleteId = null;
+            render();
+          }
+        }, 3000);
+      } else {
+        confirmDeleteId = null;
+        instruments = instruments.filter(i => i.id !== id);
+        if (editingId === id) editingId = null;
+        syncData();
+        render();
+      }
+    }
+
+    function render() {
+      const container = document.getElementById('instrumentList');
+      container.innerHTML = '';
+
+      instruments.forEach(inst => {
+        const card = document.createElement('div');
+        card.className = 'instrument-card';
+
+        if (editingId === inst.id) {
+          card.innerHTML = `
+            <div class="edit-fields">
+              <div class="input-group">
+                <span class="input-label">儀器名稱</span>
+                <input type="text" id="editName_${inst.id}" class="input-field" value="${inst.name}">
+              </div>
+              <div class="input-group">
+                <span class="input-label">目前使用者</span>
+                <input type="text" id="editUser_${inst.id}" class="input-field" value="${inst.user}">
+              </div>
+              <div class="input-group">
+                <span class="input-label">備註狀態</span>
+                <input type="text" id="editNote_${inst.id}" class="input-field" value="${inst.note}">
+              </div>
+            </div>
+            <div class="card-actions">
+              <button class="btn-card-action" style="color: var(--online-color); font-weight: bold;" onclick="toggleEdit('${inst.id}')">儲存</button>
+              <button class="btn-card-action" onclick="cancelEdit()">取消</button>
+            </div>
+          `;
+        } else {
+          let statusClass = 'status-online';
+          let statusName = '運作正常';
+          let statusDot = '🟢';
+
+          if (inst.status === 'maintenance') {
+            statusClass = 'status-maintenance';
+            statusName = '預約/維護';
+            statusDot = '🟡';
+          } else if (inst.status === 'issue') {
+            statusClass = 'status-issue';
+            statusName = '硬體異常';
+            statusDot = '🔴';
+          }
+
+          const isDeleting = confirmDeleteId === inst.id;
+          const deleteBtnText = isDeleting ? '⚠️ 確定刪除?' : '🗑️ 刪除';
+          const deleteBtnStyle = isDeleting ? 'style="color: var(--issue-color); font-weight: bold;"' : '';
+
+          card.innerHTML = `
+            <div class="card-main">
+              <div class="info-section">
+                <div class="inst-name" title="${inst.name}">${inst.name}</div>
+                <div class="inst-meta">
+                  <span title="${inst.user}">👤 目前使用者: ${inst.user}</span>
+                  <span title="${inst.note}">📝 備註: ${inst.note}</span>
+                </div>
+              </div>
+              <div class="status-section">
+                <span class="status-badge ${statusClass}">
+                  <span>${statusDot}</span>
+                  <span>${statusName}</span>
+                </span>
+                <select class="status-selector" onchange="updateStatus('${inst.id}', this.value); syncData();">
+                  <option value="online" ${inst.status === 'online' ? 'selected' : ''}>運作正常</option>
+                  <option value="maintenance" ${inst.status === 'maintenance' ? 'selected' : ''}>預約/維護</option>
+                  <option value="issue" ${inst.status === 'issue' ? 'selected' : ''}>硬體異常</option>
+                </select>
+              </div>
+            </div>
+            <div class="card-actions">
+              <button class="btn-card-action" onclick="toggleEdit('${inst.id}')">✏️ 編輯欄位</button>
+              <button class="btn-card-action btn-delete" ${deleteBtnStyle} onclick="handleDeleteClick('${inst.id}')">${deleteBtnText}</button>
+            </div>
+          `;
+        }
+        container.appendChild(card);
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>
