@@ -356,6 +356,36 @@
       opacity: 0.9;
     }
 
+    .toast-container {
+      position: fixed;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #333333;
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      z-index: 9999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    .toast-container.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(-4px);
+    }
+
+    .toast-danger {
+      background-color: var(--issue-color);
+    }
+
+    .toast-success {
+      background-color: var(--online-color);
+    }
+
     @keyframes slideDown {
       from { opacity: 0; transform: translateY(-5px); }
       to { opacity: 1; transform: translateY(0); }
@@ -402,6 +432,8 @@
     </div>
   </div>
 
+  <div id="toastMessage" class="toast-container"></div>
+
   <script>
     const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbwMXyBsnkdoBwgy4KeV7HEZV6UUa9h9r-PboquVS-wv1LLtuo4QOWUmHZ7O0RhlgsH3CQ/exec';
 
@@ -418,6 +450,20 @@
     let confirmDeleteId = null;
     let confirmResetState = false;
     let syncUrl = "";
+    let toastTimer = null;
+
+    function showToast(message, type = 'info') {
+      const toast = document.getElementById('toastMessage');
+      toast.innerText = message;
+      toast.className = 'toast-container show';
+      if (type === 'danger') toast.classList.add('toast-danger');
+      if (type === 'success') toast.classList.add('toast-success');
+      
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.className = 'toast-container';
+      }, 3500);
+    }
 
     function init() {
       // 1. 優先從 URL 參數讀取同步網址 (適合 Notion /embed 跨裝置免設定)
@@ -540,6 +586,7 @@
             ? '⚠️ 同步失敗 (GAS權限需設為Anyone)'
             : '⚠️ 同步失敗 (點擊重試)';
           updateSyncStatus('error', errMsg, e.message);
+          showToast(errMsg, 'danger');
         }
       }
     }
@@ -559,6 +606,7 @@
       }
       toggleSyncPanel();
       loadData();
+      showToast('同步設定已儲存', 'success');
     }
 
     function useDefaultSyncUrl() {
@@ -574,6 +622,7 @@
       } catch (e) {}
       toggleSyncPanel();
       loadData();
+      showToast('已切換回本機模式', 'info');
     }
 
     function copyNotionEmbedUrl() {
@@ -582,7 +631,7 @@
       const embedUrl = `${base}?sync=${encodeURIComponent(currentUrl)}`;
       
       navigator.clipboard.writeText(embedUrl).then(() => {
-        alert('✅ 已複製 Notion 嵌入連結（含同步參數）');
+        showToast('✅ 已複製 Notion 嵌入連結（含同步參數）', 'success');
       }).catch(() => {
         prompt('請複製以下嵌入網址：', embedUrl);
       });
@@ -635,6 +684,7 @@
         btn.innerText = '還原預設';
         btn.style.borderColor = 'var(--border-color)';
         btn.style.color = 'var(--text-secondary)';
+        showToast('已還原為預設儀器清單', 'info');
       }
     }
 
@@ -645,7 +695,7 @@
         const noteVal = document.getElementById(`editNote_${id}`).value.trim();
 
         if (!nameVal) {
-          alert('儀器名稱不能為空！');
+          showToast('⚠️ 儀器名稱不能為空！', 'danger');
           return;
         }
 
@@ -658,6 +708,7 @@
         editingId = null;
         syncData();
         render();
+        showToast('已更新儀器資訊', 'success');
       } else {
         editingId = id;
         render();
@@ -682,6 +733,7 @@
       editingId = newId;
       syncData();
       render();
+      showToast('已新增儀器，請編輯名稱與狀態', 'info');
     }
 
     function handleDeleteClick(id) {
@@ -701,6 +753,7 @@
         if (editingId === id) editingId = null;
         syncData();
         render();
+        showToast('已刪除儀器', 'info');
       }
     }
 
