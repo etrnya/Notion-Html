@@ -316,6 +316,51 @@
       opacity: 0.9;
     }
 
+    .btn-secondary {
+      background: none;
+      border: 1px solid var(--border-color);
+      color: var(--text-color);
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-secondary:hover {
+      background-color: var(--button-bg);
+    }
+
+    .toast-container {
+      position: fixed;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #333333;
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      z-index: 9999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    .toast-container.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(-4px);
+    }
+
+    .toast-danger {
+      background-color: var(--danger-color);
+    }
+
+    .toast-success {
+      background-color: var(--safe-color);
+    }
+
     @keyframes slideDown {
       from { opacity: 0; transform: translateY(-5px); }
       to { opacity: 1; transform: translateY(0); }
@@ -347,8 +392,13 @@
         <input type="text" id="syncUrlInput" class="input-field" placeholder="貼上部署後的 GAS Web App URL...">
         <button class="btn-save" onclick="saveSyncUrl()">儲存</button>
       </div>
-      <div id="syncStatusText" style="font-size: 10px; color: var(--text-secondary); margin-top: 2px;">
-        ※ 未填寫時將使用瀏覽器本機儲存 (LocalStorage)。
+      <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;">
+        <button type="button" class="btn-secondary" onclick="useDefaultSyncUrl()">⚡ 填入預設網址</button>
+        <button type="button" class="btn-secondary" onclick="copyNotionEmbedUrl()">📋 複製 Notion 專用嵌入網址</button>
+        <button type="button" class="btn-secondary" onclick="clearSyncUrl()">☁️ 切換回本機模式</button>
+      </div>
+      <div id="syncStatusText" style="font-size: 10.5px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4;">
+        ※ 未填寫時將使用瀏覽器本機儲存 (LocalStorage)。建議使用上方複製功能，將帶有同步網址的連結嵌入 Notion，即可跨裝置自動同步！
       </div>
     </div>
 
@@ -368,7 +418,11 @@
     </div>
   </div>
 
+  <div id="toastMessage" class="toast-container"></div>
+
   <script>
+    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxJLQeBE3PydGrOwNK9q7Hph6D9nr7GxcQctKKKvIcT4lPXBzHb907yeiQnXFsqlN0N/exec';
+
     const DEFAULT_MILESTONES = [
       { id: 'ms1', title: 'TFDA 實地查核 (東興實驗室)', targetDate: '2026-07-20', startDate: '2026-01-01' },
       { id: 'ms2', title: 'TFDA能力試驗 (食品中孔雀綠、結晶紫)', targetDate: '2026-09-01', startDate: '2026-06-01' },
@@ -380,15 +434,42 @@
     let confirmDeleteId = null;
     let confirmResetState = false;
     let syncUrl = "";
+    let toastTimer = null;
+
+    function showToast(message, type = 'info') {
+      const toast = document.getElementById('toastMessage');
+      toast.innerText = message;
+      toast.className = 'toast-container show';
+      if (type === 'danger') toast.classList.add('toast-danger');
+      if (type === 'success') toast.classList.add('toast-success');
+      
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.className = 'toast-container';
+      }, 3500);
+    }
 
     function init() {
-      // 1. 讀取同步網址
-      try {
-        syncUrl = localStorage.getItem('sync_url_milestones') || "";
-        document.getElementById('syncUrlInput').value = syncUrl;
-      } catch (e) {
-        console.warn("無法讀取 LocalStorage 同步設定");
+      // 1. 優先從 URL 參數讀取同步網址 (適合 Notion /embed 跨裝置免設定)
+      const urlParams = new URLSearchParams(window.location.search);
+      const querySync = urlParams.get('sync') || urlParams.get('syncUrl');
+
+      if (querySync) {
+        syncUrl = querySync.trim();
+        try {
+          localStorage.setItem('sync_url_milestones', syncUrl);
+        } catch (e) {
+          console.warn("無法寫入 LocalStorage 同步設定");
+        }
+      } else {
+        try {
+          syncUrl = localStorage.getItem('sync_url_milestones') || "";
+        } catch (e) {
+          console.warn("無法讀取 LocalStorage 同步設定");
+        }
       }
+
+      document.getElementById('syncUrlInput').value = syncUrl;
 
       // 2. 載入數據
       loadData();
@@ -423,14 +504,28 @@
         try {
           const response = await fetch(syncUrl);
           if (!response.ok) throw new Error("HTTP " + response.status);
-          const data = await response.json();
           
-          milestones = data.length > 0 ? data : [...DEFAULT_MILESTONES];
+          const text = await response.text();
+          let data;
+          try {
+            data = JSON.parse(text);
+          } catch (jsonErr) {
+            // 若拿到 HTML 登入畫面表示權限未公開
+            if (text.includes("accounts.google.com") || text.includes("<html")) {
+              throw new Error("AUTH_REQUIRED: GAS 權限需設為「任何人 (Anyone)」");
+            }
+            throw jsonErr;
+          }
+          
+          milestones = Array.isArray(data) && data.length > 0 ? data : [...DEFAULT_MILESTONES];
           saveLocal();
           updateSyncStatus('synced', '🟢 雲端同步');
         } catch (e) {
           console.error("載入雲端數據失敗:", e);
-          updateSyncStatus('error', '⚠️ 同步失敗 (點擊重試)');
+          const errMsg = e.message && e.message.includes("AUTH_REQUIRED")
+            ? '⚠️ 同步失敗 (GAS權限需設為Anyone)'
+            : '⚠️ 同步失敗 (點擊重試)';
+          updateSyncStatus('error', errMsg, e.message);
           loadLocal();
         }
       } else {
@@ -454,15 +549,29 @@
             },
             body: JSON.stringify(milestones)
           });
-          const res = await response.json();
+          const text = await response.text();
+          let res;
+          try {
+            res = JSON.parse(text);
+          } catch (jsonErr) {
+            if (text.includes("accounts.google.com") || text.includes("<html")) {
+              throw new Error("AUTH_REQUIRED: GAS 權限需設為「任何人 (Anyone)」");
+            }
+            throw jsonErr;
+          }
+
           if (res.status === 'success') {
             updateSyncStatus('synced', '🟢 雲端同步');
           } else {
-            throw new Error(res.message);
+            throw new Error(res.message || "同步回傳異常");
           }
         } catch (e) {
           console.error("寫入雲端數據失敗:", e);
-          updateSyncStatus('error', '⚠️ 同步失敗 (點擊重試)');
+          const errMsg = e.message && e.message.includes("AUTH_REQUIRED")
+            ? '⚠️ 同步失敗 (GAS權限需設為Anyone)'
+            : '⚠️ 同步失敗 (點擊重試)';
+          updateSyncStatus('error', errMsg, e.message);
+          showToast(errMsg, 'danger');
         }
       }
     }
@@ -482,14 +591,43 @@
       }
       toggleSyncPanel();
       loadData();
+      showToast('同步設定已儲存', 'success');
     }
 
-    function updateSyncStatus(status, text) {
+    function useDefaultSyncUrl() {
+      document.getElementById('syncUrlInput').value = DEFAULT_GAS_URL;
+      saveSyncUrl();
+    }
+
+    function clearSyncUrl() {
+      document.getElementById('syncUrlInput').value = "";
+      syncUrl = "";
+      try {
+        localStorage.removeItem('sync_url_milestones');
+      } catch (e) {}
+      toggleSyncPanel();
+      loadData();
+      showToast('已切換為本機模式', 'info');
+    }
+
+    function copyNotionEmbedUrl() {
+      const currentUrl = syncUrl || DEFAULT_GAS_URL;
+      const base = window.location.origin + window.location.pathname;
+      const embedUrl = `${base}?sync=${encodeURIComponent(currentUrl)}`;
+      
+      navigator.clipboard.writeText(embedUrl).then(() => {
+        showToast('✅ 已複製 Notion 嵌入連結（含同步參數）', 'success');
+      }).catch(() => {
+        prompt('請複製以下嵌入網址：', embedUrl);
+      });
+    }
+
+    function updateSyncStatus(status, text, detail = "") {
       const indicator = document.getElementById('syncIndicator');
       const statusText = document.getElementById('syncStatusText');
       
       indicator.innerText = text;
-      statusText.innerText = "目前狀態: " + text;
+      statusText.innerHTML = `<strong>目前狀態：</strong>${text}` + (detail ? `<br><span style="color:var(--danger-color)">診斷：${detail}</span>` : "");
 
       if (status === 'synced') {
         indicator.style.color = 'var(--safe-color)';
@@ -531,6 +669,7 @@
         btn.innerText = '還原預設';
         btn.style.borderColor = 'var(--border-color)';
         btn.style.color = 'var(--text-color)';
+        showToast('已還原為預設里程碑', 'info');
       }
     }
 
@@ -544,7 +683,7 @@
       const date = document.getElementById('newDate').value;
 
       if (!title || !date) {
-        alert('請填寫完整名稱與日期！');
+        showToast('⚠️ 請填寫完整名稱與目標日期！', 'danger');
         return;
       }
 
@@ -563,6 +702,7 @@
       document.getElementById('newTitle').value = '';
       document.getElementById('newDate').value = '';
       toggleForm();
+      showToast('已新增里程碑', 'success');
     }
 
     function handleDeleteClick(id) {
@@ -582,6 +722,7 @@
         if (editingId === id) editingId = null;
         syncData();
         render();
+        showToast('已刪除項目', 'info');
       }
     }
 
@@ -603,7 +744,7 @@
         const inputDate = document.getElementById(`editDate_${id}`).value;
 
         if (!inputTitle || !inputDate) {
-          alert('名稱或日期不能為空！');
+          showToast('⚠️ 名稱或日期不能為空！', 'danger');
           return;
         }
 
@@ -615,6 +756,7 @@
         editingId = null;
         syncData();
         render();
+        showToast('已更新項目', 'success');
       } else {
         editingId = id;
         render();

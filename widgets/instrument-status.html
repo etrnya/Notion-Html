@@ -113,6 +113,21 @@
       background-color: var(--button-bg);
     }
 
+    .btn-secondary {
+      background: none;
+      border: 1px solid var(--border-color);
+      color: var(--text-color);
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-secondary:hover {
+      background-color: var(--button-bg);
+    }
+
     .header-actions {
       display: flex;
       gap: 6px;
@@ -372,8 +387,13 @@
         <input type="text" id="syncUrlInput" class="input-field" placeholder="貼上部署後的 GAS Web App URL...">
         <button class="btn-save" onclick="saveSyncUrl()">儲存</button>
       </div>
-      <div id="syncStatusText" style="font-size: 10px; color: var(--text-secondary); margin-top: 2px;">
-        ※ 未填寫時將使用瀏覽器本機儲存 (LocalStorage)。
+      <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;">
+        <button type="button" class="btn-secondary" onclick="useDefaultSyncUrl()">⚡ 填入預設網址</button>
+        <button type="button" class="btn-secondary" onclick="copyNotionEmbedUrl()">📋 複製 Notion 專用嵌入網址</button>
+        <button type="button" class="btn-secondary" onclick="clearSyncUrl()">☁️ 切換回本機模式</button>
+      </div>
+      <div id="syncStatusText" style="font-size: 10.5px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4;">
+        ※ 未填寫時將使用瀏覽器本機儲存 (LocalStorage)。建議使用上方複製功能，將帶有同步網址的連結嵌入 Notion，即可跨裝置自動同步！
       </div>
     </div>
 
@@ -383,6 +403,8 @@
   </div>
 
   <script>
+    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbwMXyBsnkdoBwgy4KeV7HEZV6UUa9h9r-PboquVS-wv1LLtuo4QOWUmHZ7O0RhlgsH3CQ/exec';
+
     const DEFAULT_INSTRUMENTS = [
       { id: 'inst1', name: 'LC-MS/MS (新55)', status: 'online', user: '廖老師組-Willy', note: '正常運作中' },
       { id: 'inst2', name: 'LC-MS/MS (QTRAP2)', status: 'maintenance', user: 'Fred (維修廠商)', note: '7/22 預約保養更換針座' },
@@ -398,13 +420,26 @@
     let syncUrl = "";
 
     function init() {
-      // 1. 讀取同步網址
-      try {
-        syncUrl = localStorage.getItem('sync_url_instruments') || "";
-        document.getElementById('syncUrlInput').value = syncUrl;
-      } catch (e) {
-        console.warn("無法讀取 LocalStorage 同步設定");
+      // 1. 優先從 URL 參數讀取同步網址 (適合 Notion /embed 跨裝置免設定)
+      const urlParams = new URLSearchParams(window.location.search);
+      const querySync = urlParams.get('sync') || urlParams.get('syncUrl');
+
+      if (querySync) {
+        syncUrl = querySync.trim();
+        try {
+          localStorage.setItem('sync_url_instruments', syncUrl);
+        } catch (e) {
+          console.warn("無法寫入 LocalStorage 同步設定");
+        }
+      } else {
+        try {
+          syncUrl = localStorage.getItem('sync_url_instruments') || "";
+        } catch (e) {
+          console.warn("無法讀取 LocalStorage 同步設定");
+        }
       }
+
+      document.getElementById('syncUrlInput').value = syncUrl;
 
       // 2. 載入數據
       loadData();
@@ -439,14 +474,27 @@
         try {
           const response = await fetch(syncUrl);
           if (!response.ok) throw new Error("HTTP " + response.status);
-          const data = await response.json();
           
-          instruments = data.length > 0 ? data : [...DEFAULT_INSTRUMENTS];
+          const text = await response.text();
+          let data;
+          try {
+            data = JSON.parse(text);
+          } catch (jsonErr) {
+            if (text.includes("accounts.google.com") || text.includes("<html")) {
+              throw new Error("AUTH_REQUIRED: GAS 權限需設為「任何人 (Anyone)」");
+            }
+            throw jsonErr;
+          }
+          
+          instruments = Array.isArray(data) && data.length > 0 ? data : [...DEFAULT_INSTRUMENTS];
           saveLocal(); // 儲存本機快取
           updateSyncStatus('synced', '🟢 雲端同步');
         } catch (e) {
           console.error("載入雲端數據失敗:", e);
-          updateSyncStatus('error', '⚠️ 同步失敗 (點擊重試)');
+          const errMsg = e.message && e.message.includes("AUTH_REQUIRED")
+            ? '⚠️ 同步失敗 (GAS權限需設為Anyone)'
+            : '⚠️ 同步失敗 (點擊重試)';
+          updateSyncStatus('error', errMsg, e.message);
           loadLocal(); // 載入本機快取作為備援
         }
       } else {
@@ -462,8 +510,6 @@
       if (syncUrl) {
         updateSyncStatus('syncing', '🔄 正在同步...');
         try {
-          // 巧妙技巧：使用 text/plain 作為 Content-Type 可以免除瀏覽器在 iframe 中的 CORS Preflight OPTIONS 預檢請求，
-          // GAS Web App 依然可以讀取 postData.contents 內部的 JSON。
           const response = await fetch(syncUrl, {
             method: "POST",
             mode: "cors",
@@ -472,15 +518,28 @@
             },
             body: JSON.stringify(instruments)
           });
-          const res = await response.json();
+          const text = await response.text();
+          let res;
+          try {
+            res = JSON.parse(text);
+          } catch (jsonErr) {
+            if (text.includes("accounts.google.com") || text.includes("<html")) {
+              throw new Error("AUTH_REQUIRED: GAS 權限需設為「任何人 (Anyone)」");
+            }
+            throw jsonErr;
+          }
+
           if (res.status === 'success') {
             updateSyncStatus('synced', '🟢 雲端同步');
           } else {
-            throw new Error(res.message);
+            throw new Error(res.message || "同步異常");
           }
         } catch (e) {
           console.error("寫入雲端數據失敗:", e);
-          updateSyncStatus('error', '⚠️ 同步失敗 (點擊重試)');
+          const errMsg = e.message && e.message.includes("AUTH_REQUIRED")
+            ? '⚠️ 同步失敗 (GAS權限需設為Anyone)'
+            : '⚠️ 同步失敗 (點擊重試)';
+          updateSyncStatus('error', errMsg, e.message);
         }
       }
     }
@@ -502,12 +561,39 @@
       loadData();
     }
 
-    function updateSyncStatus(status, text) {
+    function useDefaultSyncUrl() {
+      document.getElementById('syncUrlInput').value = DEFAULT_GAS_URL;
+      saveSyncUrl();
+    }
+
+    function clearSyncUrl() {
+      document.getElementById('syncUrlInput').value = "";
+      syncUrl = "";
+      try {
+        localStorage.removeItem('sync_url_instruments');
+      } catch (e) {}
+      toggleSyncPanel();
+      loadData();
+    }
+
+    function copyNotionEmbedUrl() {
+      const currentUrl = syncUrl || DEFAULT_GAS_URL;
+      const base = window.location.origin + window.location.pathname;
+      const embedUrl = `${base}?sync=${encodeURIComponent(currentUrl)}`;
+      
+      navigator.clipboard.writeText(embedUrl).then(() => {
+        alert('✅ 已複製 Notion 嵌入連結（含同步參數）');
+      }).catch(() => {
+        prompt('請複製以下嵌入網址：', embedUrl);
+      });
+    }
+
+    function updateSyncStatus(status, text, detail = "") {
       const indicator = document.getElementById('syncIndicator');
       const statusText = document.getElementById('syncStatusText');
       
       indicator.innerText = text;
-      statusText.innerText = "目前狀態: " + text;
+      statusText.innerHTML = `<strong>目前狀態：</strong>${text}` + (detail ? `<br><span style="color:var(--issue-color)">診斷：${detail}</span>` : "");
 
       if (status === 'synced') {
         indicator.style.color = 'var(--online-color)';
