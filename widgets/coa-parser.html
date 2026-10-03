@@ -222,13 +222,13 @@
     }
 
     .error-console-box {
-      background-color: #181111;
-      border: 1px solid rgba(248, 81, 73, 0.4);
+      background-color: #1c1414;
+      border: 1.5px solid #f85149;
       border-radius: 8px;
-      padding: 10px 12px;
+      padding: 12px 14px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 8px;
     }
 
     .error-console-header {
@@ -238,26 +238,29 @@
     }
 
     .error-console-title {
-      font-size: 11.5px;
+      font-size: 12px;
       font-weight: 700;
-      color: var(--danger);
+      color: #ff7b72;
       display: flex;
       align-items: center;
       gap: 6px;
     }
 
     .error-code-pre {
-      background-color: #0d0d0d;
-      border: 1px solid #332222;
-      border-radius: 5px;
-      padding: 8px 10px;
+      background-color: #0d1117;
+      border: 1px solid #442222;
+      border-radius: 6px;
+      padding: 12px 14px;
       font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
-      font-size: 11px;
-      color: #ff8580;
+      font-size: 12.5px;
+      line-height: 1.6;
+      color: #ffffff; /* 純白高對比文字，黑色背景下無需選取即可一目了然 */
+      font-weight: 500;
       overflow-x: auto;
-      max-height: 180px;
+      max-height: 240px;
       white-space: pre-wrap;
       word-break: break-all;
+      user-select: text;
     }
 
     /* 批次任務佇列欄 */
@@ -265,12 +268,26 @@
       background-color: var(--panel-bg);
       border: 1px solid var(--border-color);
       border-radius: var(--radius);
-      padding: 10px 14px;
+      padding: 8px 14px;
       display: flex;
       align-items: center;
       gap: 10px;
       overflow-x: auto;
       white-space: nowrap;
+    }
+
+    /* 匯出與 Notion 聯動工具列 (置於佇列下方) */
+    .export-actions-bar {
+      background-color: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 8px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      box-shadow: var(--shadow);
     }
 
     .queue-label {
@@ -468,6 +485,9 @@
       min-height: 100%;
       padding: 10px 4px;
       box-sizing: border-box;
+      transform-origin: center top;
+      will-change: transform;
+      transition: none;
     }
 
     .viewer-image {
@@ -698,6 +718,36 @@
         width: 100%;
       }
     }
+
+    /* 頁尾著作權與開源資訊 */
+    .app-footer {
+      margin-top: 10px;
+      padding: 10px 16px;
+      text-align: center;
+      font-size: 11.5px;
+      color: var(--text-sub);
+      border: 1px solid var(--border-color);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      background-color: var(--panel-bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .footer-link {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .footer-link:hover {
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
@@ -803,6 +853,18 @@
       <button class="btn btn-secondary" onclick="clearQueue()" style="flex-shrink:0;">🗑️ 清空佇列</button>
     </section>
 
+    <!-- 匯出與 Notion 聯動工具列 (從底部移至此處，常駐上方不隨多頁滾動消失) -->
+    <section class="export-actions-bar">
+      <div style="font-size: 11.5px; color: var(--text-sub); display:flex; align-items:center; gap:6px;">
+        <span>💾 <strong>資料產出</strong>：核對無誤後可一鍵下載 CSV 存檔或直接複製貼入 Notion 資料庫</span>
+      </div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button class="btn btn-secondary" onclick="copyNotionTable()">📋 複製為 Notion 格式</button>
+        <button class="btn btn-accent" onclick="exportCurrentCsv()">📥 下載當前單筆 CSV</button>
+        <button class="btn btn-primary" onclick="exportAllCsv()">📦 匯出全部佇列 CSV</button>
+      </div>
+    </section>
+
     <!-- 手機版頁籤切換 (Mobile Only) -->
     <div class="mobile-tab-nav">
       <button class="tab-btn active" id="tabBtnPreview" onclick="switchMobileTab('preview')">📄 文件預覽</button>
@@ -835,6 +897,7 @@
             <button class="btn btn-secondary btn-sm" onclick="resetZoom()" title="100% 原始大小">100%</button>
             <button class="btn btn-secondary btn-sm" onclick="fitWidth()" title="符合視窗寬度">📐 寬度適應</button>
             <button class="btn btn-secondary btn-sm" id="btnExpandView" onclick="toggleExpandView()" title="切換視野最大化 (預覽佔 65%)">⇄ 擴大視野</button>
+            <button class="btn btn-secondary btn-sm" onclick="resetPan()" title="重設平移位置回到正中央">↺ 視野置中</button>
             <span id="zoomLevelDisplay" style="font-size:11px; font-weight:700; color:var(--primary); margin-left:4px;">125%</span>
           </div>
           <div style="display:flex; align-items:center; gap:8px;">
@@ -877,6 +940,9 @@
         </div>
 
         <div class="form-content">
+          <!-- 當前任務狀態提示橫幅 -->
+          <div id="taskStatusBanner" style="display:none; padding:8px 12px; border-radius:6px; font-size:11.5px; align-items:center; justify-content:space-between; gap:6px;"></div>
+
           <!-- 廠牌與品名 -->
           <div class="grid-2col">
             <div class="field-card">
@@ -884,14 +950,14 @@
                 <span class="field-label">1. 製造廠牌 (Brand)</span>
                 <span id="badge_brand" class="confidence-badge conf-high">HIGH</span>
               </div>
-              <input type="text" id="field_brand" class="field-input" placeholder="例如: Sigma-Aldrich, Merck, USP...">
+              <input type="text" id="field_brand" class="field-input" placeholder="例如: Sigma-Aldrich, Merck, USP..." oninput="syncCurrentFormToTask()">
             </div>
             <div class="field-card">
               <div class="field-label-row">
                 <span class="field-label">2. 產品品名 (Product Name)</span>
                 <span id="badge_product" class="confidence-badge conf-high">HIGH</span>
               </div>
-              <input type="text" id="field_product" class="field-input" placeholder="標準品或化學原料名稱...">
+              <input type="text" id="field_product" class="field-input" placeholder="標準品或化學原料名稱..." oninput="syncCurrentFormToTask()">
             </div>
           </div>
 
@@ -902,14 +968,14 @@
                 <span class="field-label">3. CAS Number</span>
                 <span id="badge_cas" class="confidence-badge conf-high">HIGH</span>
               </div>
-              <input type="text" id="field_cas" class="field-input" placeholder="例如: 50-99-7, 58-08-2...">
+              <input type="text" id="field_cas" class="field-input" placeholder="例如: 50-99-7, 58-08-2..." oninput="syncCurrentFormToTask()">
             </div>
             <div class="field-card">
               <div class="field-label-row">
                 <span class="field-label">4. 生產批號 (Batch / Lot No.)</span>
                 <span id="badge_batch" class="confidence-badge conf-high">HIGH</span>
               </div>
-              <input type="text" id="field_batch" class="field-input" placeholder="檢驗批號或原廠 Lot No...">
+              <input type="text" id="field_batch" class="field-input" placeholder="檢驗批號或原廠 Lot No..." oninput="syncCurrentFormToTask()">
             </div>
           </div>
 
@@ -920,21 +986,21 @@
                 <span class="field-label">5. 純度/含量 (Purity)</span>
                 <span id="badge_purity" class="confidence-badge conf-high">HIGH</span>
               </div>
-              <input type="text" id="field_purity" class="field-input" placeholder="例如: 99.8 %">
+              <input type="text" id="field_purity" class="field-input" placeholder="例如: 99.8 %" oninput="syncCurrentFormToTask()">
             </div>
             <div class="field-card">
               <div class="field-label-row">
                 <span class="field-label">6. 有效期限 (Expiry Date)</span>
                 <span id="badge_expiry" class="confidence-badge conf-high">HIGH</span>
               </div>
-              <input type="text" id="field_expiry" class="field-input" placeholder="YYYY/MM/DD">
+              <input type="text" id="field_expiry" class="field-input" placeholder="YYYY/MM/DD" oninput="syncCurrentFormToTask()">
             </div>
             <div class="field-card">
               <div class="field-label-row">
                 <span class="field-label">7. 包裝容量 (Amount)</span>
                 <span id="badge_amount" class="confidence-badge conf-high">HIGH</span>
               </div>
-              <input type="text" id="field_amount" class="field-input" placeholder="例如: 100 mg, 1 g, 25 mL">
+              <input type="text" id="field_amount" class="field-input" placeholder="例如: 100 mg, 1 g, 25 mL" oninput="syncCurrentFormToTask()">
             </div>
           </div>
 
@@ -945,14 +1011,14 @@
                 <span class="field-label">8. 分子量 (Molecular Weight)</span>
                 <span id="badge_mw" class="confidence-badge conf-high">HIGH</span>
               </div>
-              <input type="text" id="field_mw" class="field-input" placeholder="例如: 180.16 g/mol">
+              <input type="text" id="field_mw" class="field-input" placeholder="例如: 180.16 g/mol" oninput="syncCurrentFormToTask()">
             </div>
             <div class="field-card">
               <div class="field-label-row">
                 <span class="field-label">9. 儲存條件 (Storage)</span>
                 <span id="badge_storage" class="confidence-badge conf-high">HIGH</span>
               </div>
-              <input type="text" id="field_storage" class="field-input" placeholder="例如: -20°C, 4°C, RT (室溫)">
+              <input type="text" id="field_storage" class="field-input" placeholder="例如: -20°C, 4°C, RT (室溫)" oninput="syncCurrentFormToTask()">
             </div>
           </div>
 
@@ -971,23 +1037,25 @@
           <!-- 備註與原始脈絡 -->
           <div class="field-card">
             <span class="field-label">AI 辨識備註與重要項目摘要</span>
-            <input type="text" id="field_notes" class="field-input" placeholder="檢驗方法 (HPLC/GC)、外觀性狀或特定指標備註...">
-          </div>
-        </div>
-
-        <!-- 底部匯出與連動工具列 -->
-        <div class="form-footer">
-          <div style="font-size: 11px; color: var(--text-sub);">
-            ※ 確認無誤後可一鍵下載 CSV 存檔或複製至 Notion
-          </div>
-          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-            <button class="btn btn-secondary" onclick="copyNotionTable()">📋 複製為 Notion 格式</button>
-            <button class="btn btn-accent" onclick="exportCurrentCsv()">📥 下載當前 CSV</button>
-            <button class="btn btn-primary" onclick="exportAllCsv()">📦 匯出全部佇列 CSV</button>
+            <input type="text" id="field_notes" class="field-input" placeholder="檢驗方法 (HPLC/GC)、外觀性狀或特定指標備註..." oninput="syncCurrentFormToTask()">
           </div>
         </div>
       </section>
     </main>
+
+    <!-- 頁尾作者資訊與著作權標示 -->
+    <footer class="app-footer">
+      <span>🔬 <strong>COA 檢驗報告書 AI 智慧辨識中心</strong> (純前端本機沙盒解析)</span>
+      <span>•</span>
+      <span>作者：<strong>etrnya</strong></span>
+      <span>•</span>
+      <a href="https://github.com/etrnya/Notion-Html" target="_blank" rel="noopener" class="footer-link">
+        <svg height="14" width="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align: text-bottom; margin-right: 2px;"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
+        GitHub: etrnya/Notion-Html
+      </a>
+      <span>•</span>
+      <span>Copyright © 2026 All Rights Reserved.</span>
+    </footer>
   </div>
 
   <div id="toastMessage" class="toast-container"></div>
@@ -1367,7 +1435,27 @@ Return pure JSON only.`;
     let isDraggingViewer = false;
     let prevMouseX = 0;
     let prevMouseY = 0;
+    let panX = 0;
+    let panY = 0;
     let activeRenderSessionId = 0; // 用於隔離切換檔案時的非同步渲染競爭
+
+    function resetPan() {
+      panX = 0;
+      panY = 0;
+      updateViewerTransform();
+      const viewer = document.getElementById('viewerContainer');
+      if (viewer) {
+        viewer.scrollLeft = 0;
+        viewer.scrollTop = 0;
+      }
+    }
+
+    function updateViewerTransform() {
+      const wrapper = document.getElementById('viewerContentWrapper');
+      if (wrapper) {
+        wrapper.style.transform = `translate(${panX}px, ${panY}px)`;
+      }
+    }
 
     function toggleExpandView() {
       const ws = document.querySelector('.main-workspace');
@@ -1378,7 +1466,7 @@ Return pure JSON only.`;
         btn.classList.add('btn-primary');
         btn.classList.remove('btn-secondary');
       } else {
-        btn.innerText = '⇄ 視野最大化';
+        btn.innerText = '⇄ 擴大視野';
         btn.classList.add('btn-secondary');
         btn.classList.remove('btn-primary');
       }
@@ -1388,7 +1476,7 @@ Return pure JSON only.`;
       const viewer = document.getElementById('viewerContainer');
       if (!viewer) return;
 
-      // 滑鼠左鍵按住拖曳平移視野 (Pan / Hand Drag) - 採用增量 Delta 算法支援 360 度上下左右無死角平移
+      // 滑鼠左鍵按住拖曳平移視野 (Canvas Pan Tool) - 採用 Transform 增量算法，支援 360 度上下左右無死角絕對平移！
       viewer.addEventListener('mousedown', (e) => {
         if (e.button !== 0) return; // 僅限滑鼠左鍵
         isDraggingViewer = true;
@@ -1414,8 +1502,9 @@ Return pure JSON only.`;
         e.preventDefault();
         const deltaX = e.clientX - prevMouseX;
         const deltaY = e.clientY - prevMouseY;
-        viewer.scrollLeft -= deltaX;
-        viewer.scrollTop -= deltaY;
+        panX += deltaX;
+        panY += deltaY;
+        updateViewerTransform();
         prevMouseX = e.clientX;
         prevMouseY = e.clientY;
       });
@@ -1449,11 +1538,13 @@ Return pure JSON only.`;
 
     function resetZoom() {
       currentZoomScale = 1.0;
+      resetPan();
       applyZoom();
     }
 
     function fitWidth() {
       const viewer = document.getElementById('viewerContainer');
+      resetPan();
       if (currentPdfDoc) {
         const containerWidth = viewer.clientWidth - 48;
         currentPdfDoc.getPage(1).then(page => {
@@ -1535,7 +1626,9 @@ Return pure JSON only.`;
         try { currentPdfDoc.destroy(); } catch(e){}
         currentPdfDoc = null;
       }
+      resetPan();
       clearFormFields();
+      updateTaskStatusBanner(null);
     }
 
     function selectTask(taskId) {
@@ -1550,14 +1643,95 @@ Return pure JSON only.`;
       document.getElementById('viewerToolbar').style.display = 'flex';
       document.getElementById('btnReplacePdf').style.display = 'inline-flex';
 
+      // 切換檔案時自動重設平移位置為正中央
+      resetPan();
+
       // 渲染對應檔案預覽
       renderFilePreview(task);
+
+      // 更新任務狀態橫幅提示
+      updateTaskStatusBanner(task);
 
       // 渲染既有數據
       if (task.extractedData) {
         fillFormFields(task.extractedData);
       } else {
         clearFormFields();
+      }
+    }
+
+    // 任務狀態橫幅提示與即時單檔補辨識
+    function updateTaskStatusBanner(task) {
+      const banner = document.getElementById('taskStatusBanner');
+      if (!banner) return;
+      if (!task) {
+        banner.style.display = 'none';
+        return;
+      }
+
+      banner.style.display = 'flex';
+      if (task.status === 'completed' && task.extractedData) {
+        banner.style.backgroundColor = 'rgba(46, 160, 67, 0.15)';
+        banner.style.border = '1px solid var(--accent)';
+        banner.style.color = '#3fb950';
+        banner.innerHTML = `
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-size:14px;">✅</span>
+            <span><strong>${task.name}</strong> 辨識成功！右側已自動帶出解析資料，您可手動校對修改。</span>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="processCurrentTask()" style="flex-shrink:0;">🔄 重新辨識</button>
+        `;
+      } else if (task.status === 'error') {
+        banner.style.backgroundColor = 'rgba(248, 81, 73, 0.15)';
+        banner.style.border = '1px solid var(--danger)';
+        banner.style.color = '#ff7b72';
+        banner.innerHTML = `
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-size:14px;">⚠️</span>
+            <span><strong>${task.name}</strong> 前次辨識失敗（遇 503 伺服器流量高峰或逾時），目前資料為空。</span>
+          </div>
+          <button class="btn btn-accent btn-sm" onclick="processCurrentTask()" style="flex-shrink:0;">⚡ 立即重新辨識此檔案</button>
+        `;
+      } else if (task.status === 'processing') {
+        banner.style.backgroundColor = 'rgba(210, 153, 34, 0.15)';
+        banner.style.border = '1px solid var(--warning)';
+        banner.style.color = '#d29922';
+        banner.innerHTML = `
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-size:14px;">🔄</span>
+            <span>正在解析 <strong>${task.name}</strong> 中，請稍候...</span>
+          </div>
+        `;
+      } else {
+        // pending
+        banner.style.backgroundColor = 'rgba(31, 111, 235, 0.15)';
+        banner.style.border = '1px solid var(--primary)';
+        banner.style.color = '#58a6ff';
+        banner.innerHTML = `
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-size:14px;">⏳</span>
+            <span><strong>${task.name}</strong> 尚未辨識，右側欄位尚無資料。</span>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="processCurrentTask()" style="flex-shrink:0;">▶️ 開始辨識此檔案</button>
+        `;
+      }
+    }
+
+    // 當前表單欄位即時同步至 task.extractedData，保證切換檔案資料不丟失
+    function syncCurrentFormToTask() {
+      if (!currentTaskId) return;
+      const task = tasks.find(t => t.id === currentTaskId);
+      if (!task) return;
+
+      const record = getCurrentFormRecord();
+      const hasContent = Object.values(record).some(v => v && v !== 'PASS' && v !== 'FAIL' && v !== 'BORDERLINE' && v !== task.name);
+      if (hasContent) {
+        task.extractedData = record;
+        if (task.status !== 'processing' && task.status !== 'error') {
+          task.status = 'completed';
+        }
+        renderQueue();
+        updateTaskStatusBanner(task);
       }
     }
 
@@ -1762,12 +1936,14 @@ Return pure JSON only.`;
         task.status = 'completed';
         renderQueue();
         fillFormFields(result);
+        updateTaskStatusBanner(task);
         showToast(`🎉 ${task.name} 辨識成功！`, 'success');
 
       } catch (err) {
         console.error("辨識錯誤:", err);
         task.status = 'error';
         renderQueue();
+        updateTaskStatusBanner(task);
         const errDesc = err?.message || (typeof err === 'object' ? JSON.stringify(err) : String(err)) || '未知執行錯誤';
         showToast(`❌ 辨識失敗: ${errDesc}`, 'danger');
         showErrorConsole('TASK_ERR', errDesc);
@@ -1775,19 +1951,47 @@ Return pure JSON only.`;
     }
 
     async function processAllPending() {
-      const pendingTasks = tasks.filter(t => t.status === 'pending');
-      if (pendingTasks.length === 0) {
-        showToast('佇列中沒有待辨識的文件', 'info');
+      // 包含尚未辨識 (pending) 與先前連線中斷/503失敗 (error) 的文件
+      const targets = tasks.filter(t => t.status === 'pending' || t.status === 'error');
+      if (targets.length === 0) {
+        if (tasks.length > 0 && tasks.every(t => t.status === 'completed')) {
+          if (confirm('佇列中所有文件皆已辨識完成。是否要將全部文件重新批次辨識一次？')) {
+            tasks.forEach(t => t.status = 'pending');
+            renderQueue();
+            return processAllPending();
+          }
+        }
+        showToast('佇列中沒有待處理或失敗的文件', 'info');
         return;
       }
 
-      for (const t of pendingTasks) {
+      showToast(`⚡ 開始批次辨識 ${targets.length} 份文件...`, 'info');
+      let successCount = 0;
+      let failCount = 0;
+
+      for (let i = 0; i < targets.length; i++) {
+        const t = targets[i];
         selectTask(t.id);
+        showToast(`[${i+1}/${targets.length}] 正在辨識: ${t.name}...`, 'info');
         await processCurrentTask();
-        // 延遲 1.5 秒以符合免費用戶每分鐘速率限制 (RPM)
-        await new Promise(r => setTimeout(r, 1500));
+
+        if (t.status === 'completed') {
+          successCount++;
+        } else {
+          failCount++;
+        }
+
+        // 避免觸發免費用戶每分鐘速率限制 (RPM)
+        if (i < targets.length - 1) {
+          await new Promise(r => setTimeout(r, 1800));
+        }
       }
-      showToast('⚡ 批次辨識任務已全數完成！', 'success');
+
+      if (failCount === 0) {
+        showToast(`🎉 批次辨識大功告成！共 ${successCount} 份文件全數辨識成功`, 'success');
+      } else {
+        showToast(`⚠️ 批次處理完畢：${successCount} 份成功，${failCount} 份失敗（點擊失敗文件可單獨重試）`, 'warning');
+      }
     }
 
     function fileToBase64(file) {
