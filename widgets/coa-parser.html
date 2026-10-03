@@ -327,15 +327,18 @@
     .status-completed { background-color: var(--accent); }
     .status-error { background-color: var(--danger); }
 
-    @keyframes pulse { from { opacity: 0.4; } to { opacity: 1; } }
-
-    /* 主工作區 (左右雙欄 / 手機 RWD) */
+    /* 主工作區 (左右雙欄 / 手機 RWD) - 視野擴大與固定高度以支援上下平移 */
     .main-workspace {
       display: grid;
-      grid-template-columns: 1fr 1.15fr;
+      grid-template-columns: 1.35fr 1fr;
       gap: 12px;
       flex: 1;
-      min-height: 580px;
+      height: calc(100vh - 165px);
+      min-height: 620px;
+    }
+
+    .main-workspace.expanded-preview {
+      grid-template-columns: 1.85fr 1fr;
     }
 
     /* 手機模式切換頁籤 (平時隱藏，手機寬度顯示) */
@@ -364,19 +367,21 @@
       border-color: var(--primary);
     }
 
-    /* 左側：文件上傳與預覽面板 */
+    /* 左側：文件上傳與預覽面板 (高度鎖定，保證內部完整上下滾動) */
     .preview-panel {
       background-color: var(--panel-bg);
       border: 1px solid var(--border-color);
       border-radius: var(--radius);
       display: flex;
       flex-direction: column;
+      height: 100%;
+      min-height: 0;
       overflow: hidden;
       box-shadow: var(--shadow);
     }
 
     .panel-header {
-      padding: 10px 14px;
+      padding: 8px 12px;
       border-bottom: 1px solid var(--border-color);
       display: flex;
       justify-content: space-between;
@@ -438,14 +443,15 @@
       font-size: 11px;
     }
 
-    /* 實體預覽容器 */
+    /* 實體預覽容器 (嚴格限定內部滾動以支援上下平移) */
     .viewer-container {
       display: none;
       flex: 1;
       position: relative;
       background-color: #121212;
       overflow: auto;
-      min-height: 420px;
+      height: 100%;
+      min-height: 0;
       cursor: grab;
       user-select: none;
     }
@@ -460,7 +466,7 @@
       align-items: center;
       width: 100%;
       min-height: 100%;
-      padding: 16px 12px;
+      padding: 10px 4px;
       box-sizing: border-box;
     }
 
@@ -477,7 +483,7 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 20px;
+      gap: 16px;
       width: 100%;
     }
 
@@ -485,17 +491,17 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
     }
 
     .pdf-page-label {
-      font-size: 10.5px;
+      font-size: 10px;
       font-weight: 600;
       color: var(--text-sub);
-      background: rgba(0, 0, 0, 0.55);
+      background: rgba(0, 0, 0, 0.6);
       border: 1px solid var(--border-color);
-      padding: 2px 10px;
-      border-radius: 12px;
+      padding: 1px 8px;
+      border-radius: 10px;
     }
 
     .pdf-page-canvas {
@@ -512,6 +518,8 @@
       border-radius: var(--radius);
       display: flex;
       flex-direction: column;
+      height: 100%;
+      min-height: 0;
       overflow: hidden;
       box-shadow: var(--shadow);
     }
@@ -826,6 +834,7 @@
             <button class="btn btn-secondary btn-sm" onclick="zoomOut()" title="縮小">🔍- 縮小</button>
             <button class="btn btn-secondary btn-sm" onclick="resetZoom()" title="100% 原始大小">100%</button>
             <button class="btn btn-secondary btn-sm" onclick="fitWidth()" title="符合視窗寬度">📐 寬度適應</button>
+            <button class="btn btn-secondary btn-sm" id="btnExpandView" onclick="toggleExpandView()" title="切換視野最大化 (預覽佔 65%)">⇄ 擴大視野</button>
             <span id="zoomLevelDisplay" style="font-size:11px; font-weight:700; color:var(--primary); margin-left:4px;">125%</span>
           </div>
           <div style="display:flex; align-items:center; gap:8px;">
@@ -1356,21 +1365,36 @@ Return pure JSON only.`;
     let currentZoomScale = 1.25;
     let currentFileType = 'pdf';
     let isDraggingViewer = false;
-    let dragStartX = 0, dragStartY = 0, dragScrollLeft = 0, dragScrollTop = 0;
+    let prevMouseX = 0;
+    let prevMouseY = 0;
+    let activeRenderSessionId = 0; // 用於隔離切換檔案時的非同步渲染競爭
+
+    function toggleExpandView() {
+      const ws = document.querySelector('.main-workspace');
+      ws.classList.toggle('expanded-preview');
+      const btn = document.getElementById('btnExpandView');
+      if (ws.classList.contains('expanded-preview')) {
+        btn.innerText = '⇆ 還原比例';
+        btn.classList.add('btn-primary');
+        btn.classList.remove('btn-secondary');
+      } else {
+        btn.innerText = '⇄ 視野最大化';
+        btn.classList.add('btn-secondary');
+        btn.classList.remove('btn-primary');
+      }
+    }
 
     function setupViewerInteractions() {
       const viewer = document.getElementById('viewerContainer');
       if (!viewer) return;
 
-      // 滑鼠左鍵按住拖曳平移視野 (Pan / Hand Drag)
+      // 滑鼠左鍵按住拖曳平移視野 (Pan / Hand Drag) - 採用增量 Delta 算法支援 360 度上下左右無死角平移
       viewer.addEventListener('mousedown', (e) => {
         if (e.button !== 0) return; // 僅限滑鼠左鍵
         isDraggingViewer = true;
         viewer.classList.add('grabbing');
-        dragStartX = e.pageX - viewer.offsetLeft;
-        dragStartY = e.pageY - viewer.offsetTop;
-        dragScrollLeft = viewer.scrollLeft;
-        dragScrollTop = viewer.scrollTop;
+        prevMouseX = e.clientX;
+        prevMouseY = e.clientY;
       });
 
       window.addEventListener('mouseup', () => {
@@ -1388,10 +1412,12 @@ Return pure JSON only.`;
       viewer.addEventListener('mousemove', (e) => {
         if (!isDraggingViewer) return;
         e.preventDefault();
-        const x = e.pageX - viewer.offsetLeft;
-        const y = e.pageY - viewer.offsetTop;
-        viewer.scrollLeft = dragScrollLeft - (x - dragStartX);
-        viewer.scrollTop = dragScrollTop - (y - dragStartY);
+        const deltaX = e.clientX - prevMouseX;
+        const deltaY = e.clientY - prevMouseY;
+        viewer.scrollLeft -= deltaX;
+        viewer.scrollTop -= deltaY;
+        prevMouseX = e.clientX;
+        prevMouseY = e.clientY;
       });
 
       // Ctrl + 滑鼠滾輪 支援直覺縮放
@@ -1446,7 +1472,7 @@ Return pure JSON only.`;
       if (disp) disp.innerText = `${Math.round(currentZoomScale * 100)}%`;
 
       if (currentFileType === 'pdf' && currentPdfDoc) {
-        renderAllPdfPages(currentPdfDoc, currentZoomScale);
+        renderAllPdfPages(currentPdfDoc, currentZoomScale, activeRenderSessionId);
       } else if (currentFileType === 'image') {
         const img = document.getElementById('imageViewer');
         if (img) {
@@ -1455,7 +1481,7 @@ Return pure JSON only.`;
       }
     }
 
-    async function renderAllPdfPages(pdfDoc, scale) {
+    async function renderAllPdfPages(pdfDoc, scale, sessionId) {
       const container = document.getElementById('pdfPagesContainer');
       const imgViewer = document.getElementById('imageViewer');
       container.innerHTML = '';
@@ -1465,6 +1491,9 @@ Return pure JSON only.`;
       document.getElementById('pageCountDisplay').innerText = `共 ${pdfDoc.numPages} 頁`;
 
       for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+        // 若切換了別的檔案，立即中斷過期渲染
+        if (sessionId !== activeRenderSessionId) return;
+
         const pageWrapper = document.createElement('div');
         pageWrapper.className = 'pdf-page-wrapper';
 
@@ -1478,13 +1507,19 @@ Return pure JSON only.`;
         pageWrapper.appendChild(canvas);
         container.appendChild(pageWrapper);
 
-        const page = await pdfDoc.getPage(pageNum);
-        const viewport = page.getViewport({ scale: scale });
-        const context = canvas.getContext('2d');
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
+        try {
+          const page = await pdfDoc.getPage(pageNum);
+          if (sessionId !== activeRenderSessionId) return;
+          const viewport = page.getViewport({ scale: scale });
+          const context = canvas.getContext('2d');
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
 
-        await page.render({ canvasContext: context, viewport: viewport }).promise;
+          await page.render({ canvasContext: context, viewport: viewport }).promise;
+        } catch (e) {
+          if (e.name === 'RenderingCancelledException') return;
+          console.warn(`第 ${pageNum} 頁渲染警示:`, e);
+        }
       }
     }
 
@@ -1496,7 +1531,10 @@ Return pure JSON only.`;
       document.getElementById('btnReplacePdf').style.display = 'none';
       const container = document.getElementById('pdfPagesContainer');
       if (container) container.innerHTML = '';
-      currentPdfDoc = null;
+      if (currentPdfDoc) {
+        try { currentPdfDoc.destroy(); } catch(e){}
+        currentPdfDoc = null;
+      }
       clearFormFields();
     }
 
@@ -1512,7 +1550,7 @@ Return pure JSON only.`;
       document.getElementById('viewerToolbar').style.display = 'flex';
       document.getElementById('btnReplacePdf').style.display = 'inline-flex';
 
-      // 渲染預覽
+      // 渲染對應檔案預覽
       renderFilePreview(task);
 
       // 渲染既有數據
@@ -1523,8 +1561,9 @@ Return pure JSON only.`;
       }
     }
 
-    // 預覽渲染引擎 (支援 PDF.js 多頁渲染與圖檔縮放)
-    function renderFilePreview(task) {
+    // 預覽渲染引擎 (支援 PDF.js 多頁渲染與獨立檔案切換快取)
+    async function renderFilePreview(task) {
+      const sessionId = ++activeRenderSessionId;
       const imgViewer = document.getElementById('imageViewer');
       const pdfContainer = document.getElementById('pdfPagesContainer');
       const toolbar = document.getElementById('viewerToolbar');
@@ -1533,34 +1572,67 @@ Return pure JSON only.`;
       pdfContainer.style.display = 'none';
       toolbar.style.display = 'flex';
 
+      // 先釋放舊的 PDF 資源
+      if (currentPdfDoc) {
+        try { currentPdfDoc.destroy(); } catch(e){}
+        currentPdfDoc = null;
+      }
+
       const file = task.file;
-      const reader = new FileReader();
 
       if (file.type.includes('image') || file.name.match(/\.(jpg|jpeg|png)$/i)) {
         currentFileType = 'image';
-        currentPdfDoc = null;
         document.getElementById('pageCountDisplay').innerText = '圖檔 1 頁';
-        reader.onload = (e) => {
-          imgViewer.src = e.target.result;
+        
+        if (task._dataUrl) {
+          imgViewer.src = task._dataUrl;
           imgViewer.style.display = 'block';
           imgViewer.style.transform = `scale(${currentZoomScale})`;
-        };
-        reader.readAsDataURL(file);
+        } else {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            if (sessionId !== activeRenderSessionId) return;
+            task._dataUrl = e.target.result;
+            imgViewer.src = task._dataUrl;
+            imgViewer.style.display = 'block';
+            imgViewer.style.transform = `scale(${currentZoomScale})`;
+          };
+          reader.readAsDataURL(file);
+        }
       } else if (file.type.includes('pdf') || file.name.endsWith('.pdf')) {
         currentFileType = 'pdf';
-        reader.onload = async (e) => {
-          const typedarray = new Uint8Array(e.target.result);
-          if (window.pdfjsLib) {
-            try {
-              currentPdfDoc = await window.pdfjsLib.getDocument(typedarray).promise;
-              await renderAllPdfPages(currentPdfDoc, currentZoomScale);
-            } catch (err) {
-              console.error("PDF.js 渲染錯誤:", err);
-              showToast('PDF 渲染失敗: ' + err.message, 'danger');
-            }
+        pdfContainer.innerHTML = `<div style="color:var(--text-sub); font-size:12px; padding:24px; text-align:center;">🔄 正在載入文件: ${task.name}...</div>`;
+        pdfContainer.style.display = 'flex';
+
+        try {
+          // 取得 ArrayBuffer (若已讀取過則複用)
+          let arrayBuffer = task._arrayBuffer;
+          if (!arrayBuffer) {
+            arrayBuffer = await file.arrayBuffer();
+            task._arrayBuffer = arrayBuffer;
           }
-        };
-        reader.readAsArrayBuffer(file);
+
+          if (sessionId !== activeRenderSessionId) return;
+
+          if (window.pdfjsLib) {
+            // 使用 slice(0) 複製獨立 buffer，避免 Web Worker transfer 造成 detached buffer
+            const typedarray = new Uint8Array(arrayBuffer.slice(0));
+            const loadingTask = window.pdfjsLib.getDocument({ data: typedarray });
+            currentPdfDoc = await loadingTask.promise;
+
+            if (sessionId !== activeRenderSessionId) {
+              currentPdfDoc.destroy();
+              return;
+            }
+
+            await renderAllPdfPages(currentPdfDoc, currentZoomScale, sessionId);
+          }
+        } catch (err) {
+          if (sessionId !== activeRenderSessionId) return;
+          console.error("PDF.js 渲染錯誤:", err);
+          pdfContainer.innerHTML = `<div style="color:var(--danger); font-size:12px; padding:20px; text-align:center;">❌ PDF 預覽載入失敗: ${err.message}</div>`;
+          showToast('PDF 載入失敗: ' + err.message, 'danger');
+        }
       }
     }
 
@@ -1664,8 +1736,27 @@ Return pure JSON only.`;
         }
 
         const data = parsedData;
-        const jsonText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        const result = JSON.parse(jsonText);
+        if (!data.candidates || data.candidates.length === 0) {
+          const reason = data.promptFeedback?.blockReason || 'Google 未回傳任何候選結果 (可能遭內容政策過濾)';
+          showErrorConsole('API_EMPTY', data);
+          throw new Error(reason);
+        }
+
+        const cand = data.candidates[0];
+        const jsonText = cand.content?.parts?.[0]?.text;
+        if (!jsonText) {
+          showErrorConsole('API_NO_TEXT', cand);
+          throw new Error(`Google 未回傳有效文字內容 (終止原因: ${cand.finishReason || '未知'})`);
+        }
+
+        let result;
+        try {
+          const cleaned = jsonText.replace(/```json/gi, '').replace(/```/g, '').trim();
+          result = JSON.parse(cleaned);
+        } catch (e) {
+          showErrorConsole('PARSE_ERR', jsonText);
+          throw new Error(`模型輸出 JSON 解析失敗: ${e.message}`);
+        }
 
         task.extractedData = result;
         task.status = 'completed';
@@ -1677,10 +1768,9 @@ Return pure JSON only.`;
         console.error("辨識錯誤:", err);
         task.status = 'error';
         renderQueue();
-        showToast(`❌ 辨識失敗: ${err.message}`, 'danger');
-        if (!document.getElementById('errorCodeContent').innerText.includes(err.message)) {
-          showErrorConsole('TASK_ERR', err.message);
-        }
+        const errDesc = err?.message || (typeof err === 'object' ? JSON.stringify(err) : String(err)) || '未知執行錯誤';
+        showToast(`❌ 辨識失敗: ${errDesc}`, 'danger');
+        showErrorConsole('TASK_ERR', errDesc);
       }
     }
 
@@ -1694,8 +1784,8 @@ Return pure JSON only.`;
       for (const t of pendingTasks) {
         selectTask(t.id);
         await processCurrentTask();
-        // 延遲 1 秒以符合免費用戶每分鐘速率限制 (RPM)
-        await new Promise(r => setTimeout(r, 1000));
+        // 延遲 1.5 秒以符合免費用戶每分鐘速率限制 (RPM)
+        await new Promise(r => setTimeout(r, 1500));
       }
       showToast('⚡ 批次辨識任務已全數完成！', 'success');
     }
@@ -1703,12 +1793,20 @@ Return pure JSON only.`;
     function fileToBase64(file) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.readAsDataURL(file);
         reader.onload = () => {
-          const base64 = reader.result.split(',')[1];
-          resolve(base64);
+          try {
+            const base64 = reader.result.split(',')[1];
+            if (!base64) throw new Error('檔案轉碼 Base64 結果為空');
+            resolve(base64);
+          } catch (e) {
+            reject(e);
+          }
         };
-        reader.onerror = error => reject(error);
+        reader.onerror = () => {
+          const errMsg = reader.error?.message || 'FileReader 讀取失敗';
+          reject(new Error(errMsg));
+        };
+        reader.readAsDataURL(file);
       });
     }
 
