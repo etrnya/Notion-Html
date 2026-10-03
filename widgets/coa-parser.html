@@ -646,10 +646,11 @@
         </div>
       </div>
       <div class="api-config-bar">
-        <select id="modelSelector" class="api-key-input" style="width: 175px;" onchange="saveModelChoice()">
-          <option value="gemini-3.8-flash" selected>gemini-3.8-flash (預設推薦)</option>
-          <option value="gemini-2.5-flash">gemini-2.5-flash</option>
-          <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+        <select id="modelSelector" class="api-key-input" style="width: 190px;" onchange="saveModelChoice()">
+          <option value="gemini-3.8-flash" selected>gemini-3.8-flash (最新推薦)</option>
+          <option value="gemini-2.0-flash">gemini-2.0-flash (高可用穩定)</option>
+          <option value="gemini-1.5-flash">gemini-1.5-flash (經典不塞車)</option>
+          <option value="gemini-1.5-pro">gemini-1.5-pro (高精度推理)</option>
         </select>
         <input type="password" id="geminiApiKey" class="api-key-input" placeholder="貼上您的 Gemini API Key (BYOK)...">
         <button class="btn btn-primary" onclick="saveApiKey()">儲存金鑰</button>
@@ -707,8 +708,14 @@
           </div>
         </div>
         <pre class="error-code-pre" id="errorCodeContent">尚未發生錯誤。</pre>
-        <div style="font-size:10.5px; color:var(--text-sub);">
-          ※ 若顯示 404/400 錯誤，通常為模型名稱變更或 API Key 無權限；可點選「複製完整錯誤訊息」回報，或嘗試切換頂部模型名稱。
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+          <div style="font-size:10.5px; color:var(--text-sub);">
+            ※ 若顯示 <strong>503 (High Demand)</strong> 代表 Google 當前伺服器流量高峰塞車；建議切換為穩定模型：
+          </div>
+          <div style="display:flex; gap:6px;">
+            <button class="btn btn-secondary" onclick="quickSwitchModelAndRetry('gemini-2.0-flash')" style="font-size:11px; padding:3px 8px;">⚡ 一鍵換成 gemini-2.0-flash 重試</button>
+            <button class="btn btn-secondary" onclick="quickSwitchModelAndRetry('gemini-1.5-flash')" style="font-size:11px; padding:3px 8px;">🛡️ 一鍵換成 gemini-1.5-flash 重試</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1042,6 +1049,23 @@ Return pure JSON only.`;
       showToast('✅ API Key 已安全保存在本機瀏覽器', 'success');
     }
 
+    function quickSwitchModelAndRetry(newModel) {
+      const sel = document.getElementById('modelSelector');
+      if (sel) {
+        sel.value = newModel;
+        saveModelChoice();
+      }
+      const panel = document.getElementById('errorConsole');
+      if (panel) panel.classList.remove('show');
+
+      showToast(`已切換為 ${newModel}，正在為您重新測試辨識...`, 'info');
+      if (currentTaskId) {
+        processCurrentTask();
+      } else {
+        testApiConnection();
+      }
+    }
+
     async function testApiConnection() {
       const key = document.getElementById('geminiApiKey').value.trim() || apiKey;
       if (!key) {
@@ -1053,21 +1077,35 @@ Return pure JSON only.`;
       showToast(`🔄 正在測試連線至 Google Gemini API (${selectedModel})...`, 'info');
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${key}`;
       
-      try {
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: "ping" }] }]
-          })
-        });
+      const maxRetries = 1;
+      let attempt = 0;
+      let res = null;
+      let parsedData = null;
 
-        const rawText = await res.text();
-        let parsedData = null;
-        try {
-          parsedData = JSON.parse(rawText);
-        } catch (e) {
-          parsedData = rawText;
+      try {
+        while (attempt <= maxRetries) {
+          res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: "ping" }] }]
+            })
+          });
+
+          const rawText = await res.text();
+          try {
+            parsedData = JSON.parse(rawText);
+          } catch (e) {
+            parsedData = rawText;
+          }
+
+          if (res.status === 503 && attempt < maxRetries) {
+            attempt++;
+            showToast(`⚠️ Google 伺服器流量高峰 (503)，等待 2 秒自動重試 (${attempt}/${maxRetries})...`, 'info');
+            await new Promise(r => setTimeout(r, 2000));
+            continue;
+          }
+          break;
         }
 
         if (res.ok) {
@@ -1310,18 +1348,32 @@ Return pure JSON only.`;
           }
         };
 
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
-        const rawText = await res.text();
+        let maxRetries = 2;
+        let attempt = 0;
+        let res = null;
         let parsedData = null;
-        try {
-          parsedData = JSON.parse(rawText);
-        } catch (e) {
-          parsedData = rawText;
+
+        while (attempt <= maxRetries) {
+          res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          const rawText = await res.text();
+          try {
+            parsedData = JSON.parse(rawText);
+          } catch (e) {
+            parsedData = rawText;
+          }
+
+          if (res.status === 503 && attempt < maxRetries) {
+            attempt++;
+            showToast(`⚠️ Google 伺服器流量高峰 (503)，等待 2 秒進行第 ${attempt} 次重試...`, 'info');
+            await new Promise(r => setTimeout(r, 2000 * attempt));
+            continue;
+          }
+          break;
         }
 
         if (!res.ok) {
