@@ -859,7 +859,8 @@
         <span>💾 <strong>資料產出</strong>：核對無誤後可一鍵下載 CSV 存檔或直接複製貼入 Notion 資料庫</span>
       </div>
       <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-        <button class="btn btn-secondary" onclick="copyNotionTable()">📋 複製為 Notion 格式</button>
+        <button class="btn btn-secondary" onclick="copyNotionTable(true)" title="複製當前這份 COA 表格 (直接在 Notion 頁面或資料表按 Ctrl+V 自動對齊填入)">📋 複製當前 (Notion 表格)</button>
+        <button class="btn btn-secondary" onclick="copyNotionTable(false)" title="複製佇列中全部已辨識的 COA 表格">📋 複製全部 (Notion 表格)</button>
         <button class="btn btn-accent" onclick="exportCurrentCsv()">📥 下載當前單筆 CSV</button>
         <button class="btn btn-primary" onclick="exportAllCsv()">📦 匯出全部佇列 CSV</button>
       </div>
@@ -1047,7 +1048,7 @@
     <footer class="app-footer">
       <span>🔬 <strong>COA 檢驗報告書 AI 智慧辨識中心</strong> (純前端本機沙盒解析)</span>
       <span>•</span>
-      <span>作者：<strong>etrnya</strong></span>
+      <span>作者：<strong>etrnya(陳彥廷)</strong></span>
       <span>•</span>
       <a href="https://github.com/etrnya/Notion-Html" target="_blank" rel="noopener" class="footer-link">
         <svg height="14" width="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align: text-bottom; margin-right: 2px;"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
@@ -1393,6 +1394,16 @@ Return pure JSON only.`;
       showToast(`已加入 ${count} 份文件至佇列`, 'success');
     }
 
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
     function renderQueue() {
       const container = document.getElementById('queueItemsList');
       document.getElementById('queueCountBadge').innerText = `(${tasks.length})`;
@@ -1413,9 +1424,12 @@ Return pure JSON only.`;
         if (t.status === 'completed') statusClass = 'status-completed';
         if (t.status === 'error') statusClass = 'status-error';
 
+        const safeName = escapeHtml(t.name);
+        const displayName = escapeHtml(t.name.length > 15 ? t.name.substring(0,14)+'...' : t.name);
+
         pill.innerHTML = `
           <span class="queue-status-dot ${statusClass}"></span>
-          <span title="${t.name}">#${idx+1} ${t.name.length > 15 ? t.name.substring(0,14)+'...' : t.name}</span>
+          <span title="${safeName}">#${idx+1} ${displayName}</span>
         `;
         container.appendChild(pill);
       });
@@ -1670,6 +1684,7 @@ Return pure JSON only.`;
       }
 
       banner.style.display = 'flex';
+      const safeName = escapeHtml(task.name);
       if (task.status === 'completed' && task.extractedData) {
         banner.style.backgroundColor = 'rgba(46, 160, 67, 0.15)';
         banner.style.border = '1px solid var(--accent)';
@@ -1677,7 +1692,7 @@ Return pure JSON only.`;
         banner.innerHTML = `
           <div style="display:flex; align-items:center; gap:6px;">
             <span style="font-size:14px;">✅</span>
-            <span><strong>${task.name}</strong> 辨識成功！右側已自動帶出解析資料，您可手動校對修改。</span>
+            <span><strong>${safeName}</strong> 辨識成功！右側已自動帶出解析資料，您可手動校對修改。</span>
           </div>
           <button class="btn btn-secondary btn-sm" onclick="processCurrentTask()" style="flex-shrink:0;">🔄 重新辨識</button>
         `;
@@ -1688,7 +1703,7 @@ Return pure JSON only.`;
         banner.innerHTML = `
           <div style="display:flex; align-items:center; gap:6px;">
             <span style="font-size:14px;">⚠️</span>
-            <span><strong>${task.name}</strong> 前次辨識失敗（遇 503 伺服器流量高峰或逾時），目前資料為空。</span>
+            <span><strong>${safeName}</strong> 前次辨識失敗（遇 503 伺服器流量高峰或逾時），目前資料為空。</span>
           </div>
           <button class="btn btn-accent btn-sm" onclick="processCurrentTask()" style="flex-shrink:0;">⚡ 立即重新辨識此檔案</button>
         `;
@@ -1699,7 +1714,7 @@ Return pure JSON only.`;
         banner.innerHTML = `
           <div style="display:flex; align-items:center; gap:6px;">
             <span style="font-size:14px;">🔄</span>
-            <span>正在解析 <strong>${task.name}</strong> 中，請稍候...</span>
+            <span>正在解析 <strong>${safeName}</strong> 中，請稍候...</span>
           </div>
         `;
       } else {
@@ -1710,7 +1725,7 @@ Return pure JSON only.`;
         banner.innerHTML = `
           <div style="display:flex; align-items:center; gap:6px;">
             <span style="font-size:14px;">⏳</span>
-            <span><strong>${task.name}</strong> 尚未辨識，右側欄位尚無資料。</span>
+            <span><strong>${safeName}</strong> 尚未辨識，右側欄位尚無資料。</span>
           </div>
           <button class="btn btn-primary btn-sm" onclick="processCurrentTask()" style="flex-shrink:0;">▶️ 開始辨識此檔案</button>
         `;
@@ -2150,22 +2165,86 @@ Return pure JSON only.`;
       showToast(`✅ 已成功下載 CSV 檔: ${filename}`, 'success');
     }
 
-    // 一鍵複製為 Notion 格式 (支援貼入 Notion Database 自動對齊)
-    function copyNotionTable() {
-      const r = getCurrentFormRecord();
-      if (!r.product_name && !r.batch_number) {
-        showToast('當前表單無資料可複製', 'danger');
-        return;
+    // 一鍵複製為 Notion 專用格式 (同時寫入 HTML Table 與 TSV，保證 Notion 頁面與資料庫 100% 自動精準分欄)
+    async function copyNotionTable(isSingle = true) {
+      let records = [];
+      if (isSingle) {
+        const r = getCurrentFormRecord();
+        if (!r.product_name && !r.batch_number) {
+          showToast('當前表單無資料可複製', 'danger');
+          return;
+        }
+        records = [r];
+      } else {
+        records = tasks.filter(t => t.extractedData).map(t => {
+          const d = t.extractedData;
+          return {
+            brand: d.brand || '',
+            product_name: d.product_name || '',
+            cas_number: d.cas_number || '',
+            batch_number: d.batch_number || '',
+            purity: d.purity || '',
+            expiry_date: d.expiry_date || '',
+            amount: d.amount || '',
+            molecular_weight: d.molecular_weight || '',
+            storage_condition: d.storage_condition || '',
+            judgment: d.judgment || 'PASS',
+            notes: d.notes || ''
+          };
+        });
+        if (records.length === 0) {
+          showToast('佇列中尚無已完成辨識的文件可複製', 'danger');
+          return;
+        }
       }
 
-      // 建立 TSV (Tab-Separated) 格式，直接在 Notion Database 按 Ctrl+V 會自動填入各欄位！
-      const tsvText = `${r.brand}\t${r.product_name}\t${r.cas_number}\t${r.batch_number}\t${r.purity}\t${r.expiry_date}\t${r.amount}\t${r.storage_condition}\t${r.judgment}`;
+      const headers = ["廠牌 (Brand)", "產品品名 (Product Name)", "CAS Number", "生產批號 (Batch No.)", "純度 (Purity)", "有效期限 (Expiry)", "包裝規格 (Amount)", "分子量 (MW)", "儲存條件 (Storage)", "判定 (Judgment)", "檢驗備註 (Notes)"];
+      const keys = ["brand", "product_name", "cas_number", "batch_number", "purity", "expiry_date", "amount", "molecular_weight", "storage_condition", "judgment", "notes"];
 
-      navigator.clipboard.writeText(tsvText).then(() => {
-        showToast('📋 已複製 Notion 專用格式！至 Notion 按 Ctrl+V 即可直接貼入', 'success');
-      }).catch(err => {
-        showToast('複製失敗，請手動複製', 'danger');
+      // 1. 生成 HTML <table> (Notion 貼入 Table 與 Database 辨識分欄的最核心標準格式)
+      let htmlTable = '<table border="1"><thead><tr>';
+      headers.forEach(h => htmlTable += `<th>${escapeHtml(h)}</th>`);
+      htmlTable += '</tr></thead><tbody>';
+      records.forEach(row => {
+        htmlTable += '<tr>';
+        keys.forEach(k => {
+          htmlTable += `<td>${escapeHtml(row[k] || '')}</td>`;
+        });
+        htmlTable += '</tr>';
       });
+      htmlTable += '</tbody></table>';
+
+      // 2. 生成標準 TSV 與純文字格式 (相容傳統表格與純文字貼上)
+      let tsvText = headers.join('\t') + '\r\n';
+      records.forEach(row => {
+        tsvText += keys.map(k => (row[k] || '').replace(/\t/g, ' ').replace(/\r?\n/g, ' ')).join('\t') + '\r\n';
+      });
+
+      try {
+        if (navigator.clipboard && window.ClipboardItem) {
+          const htmlBlob = new Blob([htmlTable], { type: 'text/html' });
+          const textBlob = new Blob([tsvText], { type: 'text/plain' });
+          await navigator.clipboard.write([
+            new ClipboardItem({
+              'text/html': htmlBlob,
+              'text/plain': textBlob
+            })
+          ]);
+        } else {
+          await navigator.clipboard.writeText(tsvText);
+        }
+
+        const countText = isSingle ? '當前 1 筆' : `全部 ${records.length} 筆`;
+        showToast(`📋 已複製 ${countText} Notion 表格！在 Notion 空白處或資料庫直接按 Ctrl+V 即可自動對齊分欄`, 'success');
+      } catch (err) {
+        console.warn('ClipboardItem 寫入受限，改用純文字 TSV fallback:', err);
+        try {
+          await navigator.clipboard.writeText(tsvText);
+          showToast('📋 已複製表格內容至剪貼簿', 'success');
+        } catch (e2) {
+          showToast('複製失敗，請手動複製', 'danger');
+        }
+      }
     }
 
     // 手機版頁籤切換
