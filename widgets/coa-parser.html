@@ -178,6 +178,15 @@
       animation: slideDown 0.2s ease;
     }
 
+    .collapsible-panel.show {
+      display: flex !important;
+    }
+
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
     .tutorial-steps {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -948,19 +957,21 @@ Return pure JSON only.`;
 
     function toggleTutorial() {
       const panel = document.getElementById('apiKeyTutorial');
-      if (panel.classList.contains('show')) {
-        panel.classList.remove('show');
-      } else {
-        panel.classList.add('show');
+      if (panel) {
+        panel.classList.toggle('show');
+        if (panel.classList.contains('show')) {
+          panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
       }
     }
 
     function toggleErrorConsole() {
       const panel = document.getElementById('errorConsole');
-      if (panel.classList.contains('show')) {
-        panel.classList.remove('show');
-      } else {
-        panel.classList.add('show');
+      if (panel) {
+        panel.classList.toggle('show');
+        if (panel.classList.contains('show')) {
+          panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
       }
     }
 
