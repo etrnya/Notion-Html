@@ -421,29 +421,88 @@
     .drop-prompt { font-size: 13px; font-weight: 600; }
     .drop-sub { font-size: 11px; color: var(--text-sub); line-height: 1.5; }
 
+    /* 預覽檢視控制列 */
+    .viewer-toolbar {
+      padding: 6px 12px;
+      background-color: var(--card-bg);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .btn-sm {
+      padding: 4px 8px;
+      font-size: 11px;
+    }
+
     /* 實體預覽容器 */
     .viewer-container {
       display: none;
       flex: 1;
       position: relative;
-      background-color: #0d0d0d;
+      background-color: #121212;
       overflow: auto;
+      min-height: 420px;
+      cursor: grab;
+      user-select: none;
+    }
+
+    .viewer-container.grabbing {
+      cursor: grabbing;
+    }
+
+    .viewer-content-wrapper {
+      display: flex;
+      flex-direction: column;
       align-items: center;
-      justify-content: center;
-      min-height: 400px;
+      width: 100%;
+      min-height: 100%;
+      padding: 16px 12px;
+      box-sizing: border-box;
     }
 
     .viewer-image {
       max-width: 100%;
-      max-height: 100%;
       object-fit: contain;
-      transition: transform 0.2s ease;
-      cursor: grab;
+      transition: transform 0.15s ease-out;
+      transform-origin: top center;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+      border-radius: 4px;
     }
 
-    .pdf-canvas {
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
-      max-width: 100%;
+    .pdf-pages-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      width: 100%;
+    }
+
+    .pdf-page-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pdf-page-label {
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--text-sub);
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid var(--border-color);
+      padding: 2px 10px;
+      border-radius: 12px;
+    }
+
+    .pdf-page-canvas {
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.75);
+      background-color: #ffffff;
+      border-radius: 4px;
+      max-width: none;
     }
 
     /* 右側：結構化核對表單面板 */
@@ -646,12 +705,14 @@
         </div>
       </div>
       <div class="api-config-bar">
-        <select id="modelSelector" class="api-key-input" style="width: 190px;" onchange="saveModelChoice()">
+        <select id="modelSelector" class="api-key-input" style="width: 200px;" onchange="saveModelChoice()">
           <option value="gemini-3.8-flash" selected>gemini-3.8-flash (最新推薦)</option>
-          <option value="gemini-2.0-flash">gemini-2.0-flash (高可用穩定)</option>
-          <option value="gemini-1.5-flash">gemini-1.5-flash (經典不塞車)</option>
-          <option value="gemini-1.5-pro">gemini-1.5-pro (高精度推理)</option>
+          <option value="gemini-3.7-flash">gemini-3.7-flash (推理思考)</option>
+          <option value="gemini-3.6-flash">gemini-3.6-flash (高穩定)</option>
+          <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (輕量極速)</option>
+          <option value="gemini-2.5-flash">gemini-2.5-flash</option>
         </select>
+        <button class="btn btn-secondary" onclick="fetchAvailableModels()" title="自動向 Google 查詢您的 API 金鑰目前開通的所有模型">🔄 偵測可用模型</button>
         <input type="password" id="geminiApiKey" class="api-key-input" placeholder="貼上您的 Gemini API Key (BYOK)...">
         <button class="btn btn-primary" onclick="saveApiKey()">儲存金鑰</button>
         <button class="btn btn-secondary" onclick="testApiConnection()">⚡ 測試連線</button>
@@ -710,11 +771,12 @@
         <pre class="error-code-pre" id="errorCodeContent">尚未發生錯誤。</pre>
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
           <div style="font-size:10.5px; color:var(--text-sub);">
-            ※ 若顯示 <strong>503 (High Demand)</strong> 代表 Google 當前伺服器流量高峰塞車；建議切換為穩定模型：
+            ※ 若顯示 <strong>503 (High Demand)</strong> 代表 Google 當前伺服器流量高峰塞車；建議切換為其他最新模型：
           </div>
           <div style="display:flex; gap:6px;">
-            <button class="btn btn-secondary" onclick="quickSwitchModelAndRetry('gemini-2.0-flash')" style="font-size:11px; padding:3px 8px;">⚡ 一鍵換成 gemini-2.0-flash 重試</button>
-            <button class="btn btn-secondary" onclick="quickSwitchModelAndRetry('gemini-1.5-flash')" style="font-size:11px; padding:3px 8px;">🛡️ 一鍵換成 gemini-1.5-flash 重試</button>
+            <button class="btn btn-secondary" onclick="quickSwitchModelAndRetry('gemini-3.7-flash')" style="font-size:11px; padding:3px 8px;">⚡ 一鍵換成 gemini-3.7-flash 重試</button>
+            <button class="btn btn-secondary" onclick="quickSwitchModelAndRetry('gemini-3.6-flash')" style="font-size:11px; padding:3px 8px;">🛡️ 一鍵換成 gemini-3.6-flash 重試</button>
+            <button class="btn btn-secondary" onclick="quickSwitchModelAndRetry('gemini-3.1-flash-lite')" style="font-size:11px; padding:3px 8px;">🚀 一鍵換成 3.1-flash-lite 重試</button>
           </div>
         </div>
       </div>
@@ -757,6 +819,23 @@
           </div>
         </div>
 
+        <!-- 檔案預覽縮放與多頁工具列 -->
+        <div class="viewer-toolbar" id="viewerToolbar" style="display:none;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <button class="btn btn-secondary btn-sm" onclick="zoomIn()" title="放大 (亦可滾輪縮放)">🔍+ 放大</button>
+            <button class="btn btn-secondary btn-sm" onclick="zoomOut()" title="縮小">🔍- 縮小</button>
+            <button class="btn btn-secondary btn-sm" onclick="resetZoom()" title="100% 原始大小">100%</button>
+            <button class="btn btn-secondary btn-sm" onclick="fitWidth()" title="符合視窗寬度">📐 寬度適應</button>
+            <span id="zoomLevelDisplay" style="font-size:11px; font-weight:700; color:var(--primary); margin-left:4px;">125%</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span id="pageCountDisplay" style="font-size:11px; font-weight:600; color:var(--text-sub);">共 1 頁</span>
+            <span style="font-size:10.5px; color:var(--text-muted); display:inline-flex; align-items:center; gap:2px;">
+              🖱️ 左鍵按住可拖曳視野・滾動垂直瀏覽多頁
+            </span>
+          </div>
+        </div>
+
         <!-- 拖曳上傳提示區 -->
         <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
           <div class="drop-icon">📤</div>
@@ -767,10 +846,12 @@
           </div>
         </div>
 
-        <!-- 檔案實體預覽檢視器 -->
+        <!-- 檔案實體預覽檢視器 (支援按住滑鼠拖曳平移與滾動) -->
         <div class="viewer-container" id="viewerContainer">
-          <img id="imageViewer" class="viewer-image" style="display:none;" alt="COA 預覽">
-          <canvas id="pdfCanvas" class="pdf-canvas" style="display:none;"></canvas>
+          <div class="viewer-content-wrapper" id="viewerContentWrapper">
+            <img id="imageViewer" class="viewer-image" style="display:none;" alt="COA 預覽">
+            <div id="pdfPagesContainer" class="pdf-pages-container" style="display:none;"></div>
+          </div>
         </div>
       </section>
 
@@ -952,6 +1033,7 @@ Return pure JSON only.`;
       }
 
       setupDragAndDrop();
+      setupViewerInteractions();
     }
 
     function saveModelChoice() {
@@ -960,6 +1042,66 @@ Return pure JSON only.`;
         localStorage.setItem('gemini_model_coa', model);
         showToast(`已切換模型為: ${model}`, 'info');
       } catch (e) {}
+    }
+
+    async function fetchAvailableModels() {
+      const key = document.getElementById('geminiApiKey').value.trim() || apiKey;
+      if (!key) {
+        showToast('請先貼上 API Key 再進行偵測', 'danger');
+        return;
+      }
+
+      showToast('🔄 正在查詢 Google API 支援的最新模型清單...', 'info');
+      try {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error?.message || `HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        if (data.models && Array.isArray(data.models)) {
+          // 過濾支援 generateContent 的 gemini 相關模型
+          const available = data.models
+            .filter(m => m.supportedGenerationMethods?.includes('generateContent') && m.name.includes('gemini'))
+            .map(m => m.name.replace('models/', ''));
+
+          if (available.length > 0) {
+            const sel = document.getElementById('modelSelector');
+            const currentSelected = sel.value;
+            sel.innerHTML = '';
+            
+            // 優先排序目前推薦的 3.8, 3.7, 3.6, 3.1
+            available.sort((a, b) => {
+              if (a.includes('3.8')) return -1;
+              if (b.includes('3.8')) return 1;
+              if (a.includes('3.7')) return -1;
+              if (b.includes('3.7')) return 1;
+              return b.localeCompare(a);
+            });
+
+            available.forEach(m => {
+              const opt = document.createElement('option');
+              opt.value = m;
+              let label = m;
+              if (m === 'gemini-3.8-flash') label += ' (最新推薦)';
+              else if (m === 'gemini-3.7-flash') label += ' (推理思考)';
+              else if (m === 'gemini-3.6-flash') label += ' (高穩定)';
+              else if (m === 'gemini-3.1-flash-lite') label += ' (極速輕量)';
+              opt.innerText = label;
+              if (m === currentSelected || (!currentSelected && m === 'gemini-3.8-flash')) {
+                opt.selected = true;
+              }
+              sel.appendChild(opt);
+            });
+            showToast(`✅ 偵測成功！已為您同步 ${available.length} 個 Google 可用模型`, 'success');
+          } else {
+            showToast('⚠️ 未找到支援的 Gemini 模型', 'info');
+          }
+        }
+      } catch (e) {
+        console.error("模型查詢失敗:", e);
+        showToast(`❌ 查詢模型失敗: ${e.message}`, 'danger');
+      }
     }
 
     function toggleTutorial() {
@@ -1211,11 +1353,150 @@ Return pure JSON only.`;
       showToast('已清空文件佇列', 'info');
     }
 
+    let currentZoomScale = 1.25;
+    let currentFileType = 'pdf';
+    let isDraggingViewer = false;
+    let dragStartX = 0, dragStartY = 0, dragScrollLeft = 0, dragScrollTop = 0;
+
+    function setupViewerInteractions() {
+      const viewer = document.getElementById('viewerContainer');
+      if (!viewer) return;
+
+      // 滑鼠左鍵按住拖曳平移視野 (Pan / Hand Drag)
+      viewer.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return; // 僅限滑鼠左鍵
+        isDraggingViewer = true;
+        viewer.classList.add('grabbing');
+        dragStartX = e.pageX - viewer.offsetLeft;
+        dragStartY = e.pageY - viewer.offsetTop;
+        dragScrollLeft = viewer.scrollLeft;
+        dragScrollTop = viewer.scrollTop;
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (isDraggingViewer) {
+          isDraggingViewer = false;
+          viewer.classList.remove('grabbing');
+        }
+      });
+
+      viewer.addEventListener('mouseleave', () => {
+        isDraggingViewer = false;
+        viewer.classList.remove('grabbing');
+      });
+
+      viewer.addEventListener('mousemove', (e) => {
+        if (!isDraggingViewer) return;
+        e.preventDefault();
+        const x = e.pageX - viewer.offsetLeft;
+        const y = e.pageY - viewer.offsetTop;
+        viewer.scrollLeft = dragScrollLeft - (x - dragStartX);
+        viewer.scrollTop = dragScrollTop - (y - dragStartY);
+      });
+
+      // Ctrl + 滑鼠滾輪 支援直覺縮放
+      viewer.addEventListener('wheel', (e) => {
+        if (e.ctrlKey) {
+          e.preventDefault();
+          if (e.deltaY < 0) {
+            zoomIn();
+          } else {
+            zoomOut();
+          }
+        }
+      }, { passive: false });
+    }
+
+    function zoomIn() {
+      if (currentZoomScale < 3.0) {
+        currentZoomScale = Math.min(3.0, +(currentZoomScale + 0.25).toFixed(2));
+        applyZoom();
+      }
+    }
+
+    function zoomOut() {
+      if (currentZoomScale > 0.5) {
+        currentZoomScale = Math.max(0.5, +(currentZoomScale - 0.25).toFixed(2));
+        applyZoom();
+      }
+    }
+
+    function resetZoom() {
+      currentZoomScale = 1.0;
+      applyZoom();
+    }
+
+    function fitWidth() {
+      const viewer = document.getElementById('viewerContainer');
+      if (currentPdfDoc) {
+        const containerWidth = viewer.clientWidth - 48;
+        currentPdfDoc.getPage(1).then(page => {
+          const vp = page.getViewport({ scale: 1.0 });
+          currentZoomScale = Math.max(0.6, Math.min(2.5, +(containerWidth / vp.width).toFixed(2)));
+          applyZoom();
+        });
+      } else {
+        currentZoomScale = 1.0;
+        applyZoom();
+      }
+    }
+
+    function applyZoom() {
+      const disp = document.getElementById('zoomLevelDisplay');
+      if (disp) disp.innerText = `${Math.round(currentZoomScale * 100)}%`;
+
+      if (currentFileType === 'pdf' && currentPdfDoc) {
+        renderAllPdfPages(currentPdfDoc, currentZoomScale);
+      } else if (currentFileType === 'image') {
+        const img = document.getElementById('imageViewer');
+        if (img) {
+          img.style.transform = `scale(${currentZoomScale})`;
+        }
+      }
+    }
+
+    async function renderAllPdfPages(pdfDoc, scale) {
+      const container = document.getElementById('pdfPagesContainer');
+      const imgViewer = document.getElementById('imageViewer');
+      container.innerHTML = '';
+      container.style.display = 'flex';
+      imgViewer.style.display = 'none';
+
+      document.getElementById('pageCountDisplay').innerText = `共 ${pdfDoc.numPages} 頁`;
+
+      for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+        const pageWrapper = document.createElement('div');
+        pageWrapper.className = 'pdf-page-wrapper';
+
+        const label = document.createElement('div');
+        label.className = 'pdf-page-label';
+        label.innerText = `📄 第 ${pageNum} / ${pdfDoc.numPages} 頁`;
+
+        const canvas = document.createElement('canvas');
+        canvas.className = 'pdf-page-canvas';
+        pageWrapper.appendChild(label);
+        pageWrapper.appendChild(canvas);
+        container.appendChild(pageWrapper);
+
+        const page = await pdfDoc.getPage(pageNum);
+        const viewport = page.getViewport({ scale: scale });
+        const context = canvas.getContext('2d');
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+
+        await page.render({ canvasContext: context, viewport: viewport }).promise;
+      }
+    }
+
     function resetWorkspace() {
       document.getElementById('currentFileName').innerText = '尚未載入文件';
       document.getElementById('dropZone').style.display = 'flex';
       document.getElementById('viewerContainer').style.display = 'none';
+      document.getElementById('viewerToolbar').style.display = 'none';
       document.getElementById('btnReplacePdf').style.display = 'none';
+      const container = document.getElementById('pdfPagesContainer');
+      if (container) container.innerHTML = '';
+      currentPdfDoc = null;
       clearFormFields();
     }
 
@@ -1228,6 +1509,7 @@ Return pure JSON only.`;
       document.getElementById('currentFileName').innerText = task.name;
       document.getElementById('dropZone').style.display = 'none';
       document.getElementById('viewerContainer').style.display = 'flex';
+      document.getElementById('viewerToolbar').style.display = 'flex';
       document.getElementById('btnReplacePdf').style.display = 'inline-flex';
 
       // 渲染預覽
@@ -1241,41 +1523,40 @@ Return pure JSON only.`;
       }
     }
 
-    // 預覽渲染引擎 (支援 PDF.js 與 圖片)
+    // 預覽渲染引擎 (支援 PDF.js 多頁渲染與圖檔縮放)
     function renderFilePreview(task) {
       const imgViewer = document.getElementById('imageViewer');
-      const pdfCanvas = document.getElementById('pdfCanvas');
+      const pdfContainer = document.getElementById('pdfPagesContainer');
+      const toolbar = document.getElementById('viewerToolbar');
 
       imgViewer.style.display = 'none';
-      pdfCanvas.style.display = 'none';
+      pdfContainer.style.display = 'none';
+      toolbar.style.display = 'flex';
 
       const file = task.file;
       const reader = new FileReader();
 
       if (file.type.includes('image') || file.name.match(/\.(jpg|jpeg|png)$/i)) {
+        currentFileType = 'image';
+        currentPdfDoc = null;
+        document.getElementById('pageCountDisplay').innerText = '圖檔 1 頁';
         reader.onload = (e) => {
           imgViewer.src = e.target.result;
           imgViewer.style.display = 'block';
+          imgViewer.style.transform = `scale(${currentZoomScale})`;
         };
         reader.readAsDataURL(file);
       } else if (file.type.includes('pdf') || file.name.endsWith('.pdf')) {
+        currentFileType = 'pdf';
         reader.onload = async (e) => {
           const typedarray = new Uint8Array(e.target.result);
           if (window.pdfjsLib) {
             try {
               currentPdfDoc = await window.pdfjsLib.getDocument(typedarray).promise;
-              const page = await currentPdfDoc.getPage(1); // 先預覽第一頁
-              const viewport = page.getViewport({ scale: 1.5 });
-              const canvas = pdfCanvas;
-              const context = canvas.getContext('2d');
-              canvas.height = viewport.height;
-              canvas.width = viewport.width;
-
-              const renderContext = { canvasContext: context, viewport: viewport };
-              await page.render(renderContext).promise;
-              pdfCanvas.style.display = 'block';
+              await renderAllPdfPages(currentPdfDoc, currentZoomScale);
             } catch (err) {
               console.error("PDF.js 渲染錯誤:", err);
+              showToast('PDF 渲染失敗: ' + err.message, 'danger');
             }
           }
         };
