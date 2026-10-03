@@ -640,6 +640,12 @@
       transition: all 0.2s ease;
     }
 
+    .judgment-option.selected-unreviewed {
+      background-color: rgba(140, 149, 159, 0.2);
+      border-color: #8b949e;
+      color: #c9d1d9;
+    }
+
     .judgment-option.selected-pass {
       background-color: rgba(46, 160, 67, 0.2);
       border-color: var(--accent);
@@ -656,6 +662,58 @@
       background-color: rgba(210, 153, 34, 0.2);
       border-color: var(--warning);
       color: var(--warning);
+    }
+
+    /* 原文證據與可追溯標籤樣式 */
+    .evidence-meta-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--text-sub);
+      margin-top: 5px;
+      flex-wrap: wrap;
+    }
+
+    .evidence-tag {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 2px 7px;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #c9d1d9;
+      font-size: 10.5px;
+      max-width: 78%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .page-tag {
+      background: rgba(31, 111, 235, 0.18);
+      color: var(--primary-hover);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .modified-tag {
+      background: rgba(210, 153, 34, 0.22);
+      color: var(--warning);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .ai-suggestion-badge {
+      font-size: 10.5px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: rgba(210, 153, 34, 0.15);
+      color: var(--warning);
+      border: 1px solid rgba(210, 153, 34, 0.4);
     }
 
     /* 底部操作工具列 */
@@ -758,8 +816,8 @@
       <div class="header-branding">
         <span style="font-size: 24px;">🔬</span>
         <div>
-          <h1 class="header-title">COA 檢驗報告書 AI 智慧辨識中心</h1>
-          <p class="header-desc">支援 PDF / JPG 批次解析・手機拍照現場驗收・一鍵匯出 CSV 檔</p>
+          <h1 class="header-title">COA 檢驗報告書 AI 輔助查核工具</h1>
+          <p class="header-desc">以 Evidence 原文證據為核心的人機協同驗收系統・純前端沙盒解析</p>
         </div>
       </div>
       <div class="api-config-bar">
@@ -773,6 +831,7 @@
         <button class="btn btn-secondary" onclick="fetchAvailableModels()" title="自動向 Google 查詢您的 API 金鑰目前開通的所有模型">🔄 偵測可用模型</button>
         <input type="password" id="geminiApiKey" class="api-key-input" placeholder="貼上您的 Gemini API Key (BYOK)...">
         <button class="btn btn-primary" onclick="saveApiKey()">儲存金鑰</button>
+        <button class="btn btn-secondary" onclick="clearApiKey()" title="清除目前瀏覽器本機保存的金鑰">🗑️ 清除金鑰</button>
         <button class="btn btn-secondary" onclick="testApiConnection()">⚡ 測試連線</button>
         <button class="btn btn-secondary" onclick="toggleTutorial()">📘 申請教學</button>
         <button class="btn btn-secondary" id="btnToggleError" onclick="toggleErrorConsole()" style="display:none; color:var(--danger); border-color:var(--danger);">🐞 檢視錯誤</button>
@@ -808,8 +867,8 @@
           </span>
         </div>
       </div>
-      <div style="font-size:11px; color:var(--text-sub); line-height:1.4; background:var(--badge-bg); padding:6px 10px; border-radius:6px;">
-        💡 <strong>資安保障提示</strong>：金鑰僅加密保存在您目前使用的瀏覽器 LocalStorage，<strong>絕不回傳任何外部伺服器</strong>，不同同仁電腦完全獨立！Google 免費用戶每日皆有免費額度供日常驗收使用。
+      <div style="font-size:11px; color:var(--text-sub); line-height:1.5; background:var(--badge-bg); padding:8px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.08);">
+        💡 <strong>資安與隱私透明宣告</strong>：本工具採純前端架構，金鑰係<strong>明文保存於您目前瀏覽器的 LocalStorage</strong>，所有辨識請求由本機瀏覽器透過 HTTPS 直接送往 Google 官方 API，<strong>絕無第三方中繼伺服器</strong>。⚠️ <strong>公用電腦請勿長期保存金鑰，離開前請務必點擊「清除金鑰」</strong>。
       </div>
     </div>
 
@@ -952,6 +1011,11 @@
                 <span id="badge_brand" class="confidence-badge conf-high">HIGH</span>
               </div>
               <input type="text" id="field_brand" class="field-input" placeholder="例如: Sigma-Aldrich, Merck, USP..." oninput="syncCurrentFormToTask()">
+              <div class="evidence-meta-row" id="meta_brand" style="display:none;">
+                <span class="evidence-tag" id="ev_brand" title="COA 原文引用">📄 原文：-</span>
+                <span class="page-tag" id="pg_brand">P.1</span>
+                <span class="modified-tag" id="mod_brand" style="display:none;">✏️ 已手動修正</span>
+              </div>
             </div>
             <div class="field-card">
               <div class="field-label-row">
@@ -959,6 +1023,11 @@
                 <span id="badge_product" class="confidence-badge conf-high">HIGH</span>
               </div>
               <input type="text" id="field_product" class="field-input" placeholder="標準品或化學原料名稱..." oninput="syncCurrentFormToTask()">
+              <div class="evidence-meta-row" id="meta_product" style="display:none;">
+                <span class="evidence-tag" id="ev_product" title="COA 原文引用">📄 原文：-</span>
+                <span class="page-tag" id="pg_product">P.1</span>
+                <span class="modified-tag" id="mod_product" style="display:none;">✏️ 已手動修正</span>
+              </div>
             </div>
           </div>
 
@@ -970,6 +1039,11 @@
                 <span id="badge_cas" class="confidence-badge conf-high">HIGH</span>
               </div>
               <input type="text" id="field_cas" class="field-input" placeholder="例如: 50-99-7, 58-08-2..." oninput="syncCurrentFormToTask()">
+              <div class="evidence-meta-row" id="meta_cas" style="display:none;">
+                <span class="evidence-tag" id="ev_cas" title="COA 原文引用">📄 原文：-</span>
+                <span class="page-tag" id="pg_cas">P.1</span>
+                <span class="modified-tag" id="mod_cas" style="display:none;">✏️ 已手動修正</span>
+              </div>
             </div>
             <div class="field-card">
               <div class="field-label-row">
@@ -977,6 +1051,11 @@
                 <span id="badge_batch" class="confidence-badge conf-high">HIGH</span>
               </div>
               <input type="text" id="field_batch" class="field-input" placeholder="檢驗批號或原廠 Lot No..." oninput="syncCurrentFormToTask()">
+              <div class="evidence-meta-row" id="meta_batch" style="display:none;">
+                <span class="evidence-tag" id="ev_batch" title="COA 原文引用">📄 原文：-</span>
+                <span class="page-tag" id="pg_batch">P.1</span>
+                <span class="modified-tag" id="mod_batch" style="display:none;">✏️ 已手動修正</span>
+              </div>
             </div>
           </div>
 
@@ -988,6 +1067,11 @@
                 <span id="badge_purity" class="confidence-badge conf-high">HIGH</span>
               </div>
               <input type="text" id="field_purity" class="field-input" placeholder="例如: 99.8 %" oninput="syncCurrentFormToTask()">
+              <div class="evidence-meta-row" id="meta_purity" style="display:none;">
+                <span class="evidence-tag" id="ev_purity" title="COA 原文引用">📄 原文：-</span>
+                <span class="page-tag" id="pg_purity">P.1</span>
+                <span class="modified-tag" id="mod_purity" style="display:none;">✏️ 已手動修正</span>
+              </div>
             </div>
             <div class="field-card">
               <div class="field-label-row">
@@ -995,6 +1079,11 @@
                 <span id="badge_expiry" class="confidence-badge conf-high">HIGH</span>
               </div>
               <input type="text" id="field_expiry" class="field-input" placeholder="YYYY/MM/DD" oninput="syncCurrentFormToTask()">
+              <div class="evidence-meta-row" id="meta_expiry" style="display:none;">
+                <span class="evidence-tag" id="ev_expiry" title="COA 原文引用">📄 原文：-</span>
+                <span class="page-tag" id="pg_expiry">P.1</span>
+                <span class="modified-tag" id="mod_expiry" style="display:none;">✏️ 已手動修正</span>
+              </div>
             </div>
             <div class="field-card">
               <div class="field-label-row">
@@ -1002,6 +1091,11 @@
                 <span id="badge_amount" class="confidence-badge conf-high">HIGH</span>
               </div>
               <input type="text" id="field_amount" class="field-input" placeholder="例如: 100 mg, 1 g, 25 mL" oninput="syncCurrentFormToTask()">
+              <div class="evidence-meta-row" id="meta_amount" style="display:none;">
+                <span class="evidence-tag" id="ev_amount" title="COA 原文引用">📄 原文：-</span>
+                <span class="page-tag" id="pg_amount">P.1</span>
+                <span class="modified-tag" id="mod_amount" style="display:none;">✏️ 已手動修正</span>
+              </div>
             </div>
           </div>
 
@@ -1013,6 +1107,11 @@
                 <span id="badge_mw" class="confidence-badge conf-high">HIGH</span>
               </div>
               <input type="text" id="field_mw" class="field-input" placeholder="例如: 180.16 g/mol" oninput="syncCurrentFormToTask()">
+              <div class="evidence-meta-row" id="meta_mw" style="display:none;">
+                <span class="evidence-tag" id="ev_mw" title="COA 原文引用">📄 原文：-</span>
+                <span class="page-tag" id="pg_mw">P.1</span>
+                <span class="modified-tag" id="mod_mw" style="display:none;">✏️ 已手動修正</span>
+              </div>
             </div>
             <div class="field-card">
               <div class="field-label-row">
@@ -1020,18 +1119,33 @@
                 <span id="badge_storage" class="confidence-badge conf-high">HIGH</span>
               </div>
               <input type="text" id="field_storage" class="field-input" placeholder="例如: -20°C, 4°C, RT (室溫)" oninput="syncCurrentFormToTask()">
+              <div class="evidence-meta-row" id="meta_storage" style="display:none;">
+                <span class="evidence-tag" id="ev_storage" title="COA 原文引用">📄 原文：-</span>
+                <span class="page-tag" id="pg_storage">P.1</span>
+                <span class="modified-tag" id="mod_storage" style="display:none;">✏️ 已手動修正</span>
+              </div>
             </div>
           </div>
 
-          <!-- 規格符合性判定 -->
-          <div class="field-card">
+          <!-- 規格符合性判定與人工確認核簽 -->
+          <div class="field-card" style="border-left: 3px solid var(--primary);">
             <div class="field-label-row">
-              <span class="field-label">10. 規格符合性判定 (QA/QC Judgment)</span>
+              <span class="field-label">10. 實驗室品保查核判定 (QA Verification)</span>
+              <span id="aiSuggestionBadge" class="ai-suggestion-badge">AI 建議: 待查核</span>
             </div>
+            <div id="aiReasonText" style="font-size: 11px; color: var(--text-sub); margin: 4px 0 6px 0; line-height: 1.4; display: none;"></div>
             <div class="judgment-selector">
-              <div class="judgment-option selected-pass" id="judgePass" onclick="setJudgment('PASS')">✅ 合格 (Pass)</div>
-              <div class="judgment-option" id="judgeBorder" onclick="setJudgment('BORDERLINE')">⚠️ 邊界風險 (Review)</div>
+              <div class="judgment-option selected-unreviewed" id="judgeUnreviewed" onclick="setJudgment('UNREVIEWED')">⚪ 尚未查核</div>
+              <div class="judgment-option" id="judgeBorder" onclick="setJudgment('REVIEW')">⚠️ 待覆核 (Review)</div>
+              <div class="judgment-option" id="judgePass" onclick="setJudgment('PASS')">✅ 合格 (Pass)</div>
               <div class="judgment-option" id="judgeFail" onclick="setJudgment('FAIL')">❌ 不合格 (Fail)</div>
+            </div>
+            <div style="margin-top: 10px; padding: 8px 10px; background: rgba(255,255,255,0.03); border: 1px dashed var(--border-color); border-radius: 6px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 11.5px; font-weight: 600;">
+                <input type="checkbox" id="chkHumanVerified" onchange="toggleHumanVerification()" style="accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer;">
+                <span>我已完成比對左側文件原文並確認上述數據無誤 (由查核員負責)</span>
+              </label>
+              <span id="verifyTimestamp" style="font-size: 10.5px; color: var(--text-muted);">尚未簽核</span>
             </div>
           </div>
 
@@ -1039,6 +1153,11 @@
           <div class="field-card">
             <span class="field-label">AI 辨識備註與重要項目摘要</span>
             <input type="text" id="field_notes" class="field-input" placeholder="檢驗方法 (HPLC/GC)、外觀性狀或特定指標備註..." oninput="syncCurrentFormToTask()">
+            <div class="evidence-meta-row" id="meta_notes" style="display:none;">
+              <span class="evidence-tag" id="ev_notes" title="COA 原文引用">📄 原文：-</span>
+              <span class="page-tag" id="pg_notes">P.1</span>
+              <span class="modified-tag" id="mod_notes" style="display:none;">✏️ 已手動修正</span>
+            </div>
           </div>
         </div>
       </section>
@@ -1046,7 +1165,7 @@
 
     <!-- 頁尾作者資訊與著作權標示 -->
     <footer class="app-footer">
-      <span>🔬 <strong>COA 檢驗報告書 AI 智慧辨識中心</strong> (純前端本機沙盒解析)</span>
+      <span>🔬 <strong>COA 檢驗報告書 AI 輔助查核工具</strong> (以 Evidence 原文證據為核心的人機協同驗收系統)</span>
       <span>•</span>
       <span>作者：<strong>etrnya(陳彥廷)</strong></span>
       <span>•</span>
@@ -1069,31 +1188,89 @@
     let toastTimer = null;
     let currentPdfDoc = null;
 
-    const COA_PROMPT = `You are a professional chemical and food analytical laboratory Certificate of Analysis (COA) data extraction expert.
-Analyze the provided COA document image or PDF. Extract the chemical/raw material specifications into the following exact JSON format:
+    const COA_PROMPT = `You are a professional chemical and food analytical laboratory Certificate of Analysis (COA) audit expert.
+Analyze the provided COA document image or PDF.
+Extract raw chemical and specification data strictly supported by verifiable text evidence in the document.
+DO NOT arbitrarily decide PASS or FAIL. Only extract verified facts, quote exact evidence text, and provide an AI review suggestion.
+
+Return pure JSON matching this exact structure:
 {
-  "brand": "Manufacturer or brand name (e.g., Sigma-Aldrich, Merck, USP, TRC, Wako)",
-  "product_name": "Chemical name or standard substance name",
-  "cas_number": "Chemical Abstracts Service (CAS) Registry Number format (e.g. 50-99-7)",
-  "batch_number": "Lot or Batch identifier code",
-  "expiry_date": "Expiration or retest date normalized as YYYY/MM/DD",
-  "purity": "Assay or purity percentage (e.g. 99.8 %)",
-  "amount": "Packaging volume, weight or mass (e.g. 100 mg, 1 g)",
-  "molecular_weight": "Formula weight or MW (e.g. 180.16)",
-  "storage_condition": "Standard storage condition normalized to: -20°C, 4°C, or RT",
-  "judgment": "PASS, FAIL, or BORDERLINE based on specifications",
-  "notes": "Key remarks such as analytical technique (HPLC, NMR, Karl Fischer water %)",
-  "confidence": {
-    "brand": "high",
-    "product_name": "high",
-    "cas_number": "high",
-    "batch_number": "high",
-    "expiry_date": "high",
-    "purity": "high"
+  "fields": {
+    "brand": { "value": "Manufacturer/Brand", "confidence": "high|medium|low", "evidence": "Exact quote from document", "page": 1 },
+    "product_name": { "value": "Chemical or product name", "confidence": "high|medium|low", "evidence": "Exact quote", "page": 1 },
+    "cas_number": { "value": "CAS Registry Number (e.g. 50-99-7)", "confidence": "high|medium|low", "evidence": "Exact quote", "page": 1 },
+    "batch_number": { "value": "Lot or Batch code", "confidence": "high|medium|low", "evidence": "Exact quote", "page": 1 },
+    "purity": { "value": "Assay or purity %", "confidence": "high|medium|low", "evidence": "Exact quote", "page": 1 },
+    "expiry_date": { "value": "Expiration or retest date (YYYY/MM/DD)", "confidence": "high|medium|low", "evidence": "Exact quote", "page": 1 },
+    "amount": { "value": "Package amount or weight", "confidence": "high|medium|low", "evidence": "Exact quote", "page": 1 },
+    "molecular_weight": { "value": "Formula weight or MW", "confidence": "high|medium|low", "evidence": "Exact quote", "page": 1 },
+    "storage_condition": { "value": "Storage condition (-20°C, 4°C, or RT)", "confidence": "high|medium|low", "evidence": "Exact quote", "page": 1 },
+    "notes": { "value": "Analytical method (HPLC, NMR) or key remarks", "confidence": "high|medium|low", "evidence": "Exact quote", "page": 1 }
+  },
+  "ai_review": {
+    "ai_suggestion": "REVIEW",
+    "reason": "COA 檢驗數據已擷取，但採購與放行規格須由品保查核員進行最終比對核對。"
   }
 }
-If any value is completely missing from the document, fill with "N/A".
-Return pure JSON only.`;
+If any field is missing from the document, set "value" to "N/A", "confidence" to "low", "evidence" to "未在文件中載明", "page": 1.
+Return ONLY valid JSON.`;
+
+    function normalizeExtractedData(raw) {
+      const keys = ["brand", "product_name", "cas_number", "batch_number", "purity", "expiry_date", "amount", "molecular_weight", "storage_condition", "notes"];
+      const data = {
+        fields: {},
+        ai_review: raw.ai_review || {
+          ai_suggestion: "REVIEW",
+          reason: "COA 數據已成功擷取，內部放行規格須由品保查核員核對確認。"
+        },
+        judgment: "UNREVIEWED",
+        human_verified: false,
+        verified_at: ""
+      };
+
+      keys.forEach(k => {
+        let val = "";
+        let conf = "high";
+        let ev = "";
+        let pg = 1;
+
+        if (raw.fields && raw.fields[k]) {
+          const f = raw.fields[k];
+          val = f.value || "";
+          conf = f.confidence || "high";
+          ev = f.evidence || "";
+          pg = f.page || 1;
+        } else if (raw[k]) {
+          val = raw[k] || "";
+          conf = (raw.confidence && raw.confidence[k]) ? raw.confidence[k] : "high";
+          ev = `原始辨識值: ${val}`;
+          pg = 1;
+        }
+
+        data.fields[k] = {
+          ai_value: val,
+          user_value: val,
+          final_value: val,
+          confidence: conf,
+          evidence: ev,
+          page: pg,
+          modified: false
+        };
+      });
+
+      return data;
+    }
+
+    function clearApiKey() {
+      if (confirm('確定要從目前瀏覽器中清除已儲存的 Gemini API Key 嗎？')) {
+        apiKey = "";
+        document.getElementById('geminiApiKey').value = "";
+        try {
+          localStorage.removeItem('gemini_api_key_coa');
+        } catch(e) {}
+        showToast('🗑️ 已自本機瀏覽器清除 API Key', 'info');
+      }
+    }
 
     function init() {
       // 讀取本地儲存的 Gemini API Key (BYOK)
@@ -1369,7 +1546,14 @@ Return pure JSON only.`;
 
     function addFilesToQueue(fileList) {
       let count = 0;
+      const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB 上限防護
+
       Array.from(fileList).forEach(file => {
+        if (file.size > MAX_FILE_SIZE) {
+          showToast(`⚠️ 檔案 ${file.name} 大小 (${(file.size/1024/1024).toFixed(1)}MB) 超過 25MB 限制，請先壓縮後再上傳`, 'danger');
+          return;
+        }
+
         const ext = file.name.split('.').pop().toLowerCase();
         if (['pdf', 'jpg', 'jpeg', 'png'].includes(ext)) {
           const id = 'task_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
@@ -1732,19 +1916,55 @@ Return pure JSON only.`;
       }
     }
 
-    // 當前表單欄位即時同步至 task.extractedData，保證切換檔案資料不丟失
+    // 當前表單欄位即時同步至 task.extractedData，支援 AI 值 vs 人工值分離與修正軌跡追蹤
     function syncCurrentFormToTask() {
       if (!currentTaskId) return;
       const task = tasks.find(t => t.id === currentTaskId);
       if (!task) return;
 
-      const record = getCurrentFormRecord();
-      const hasContent = Object.values(record).some(v => v && v !== 'PASS' && v !== 'FAIL' && v !== 'BORDERLINE' && v !== task.name);
-      if (hasContent) {
-        task.extractedData = record;
-        if (task.status !== 'processing' && task.status !== 'error') {
-          task.status = 'completed';
+      if (!task.extractedData) {
+        task.extractedData = normalizeExtractedData({});
+      }
+
+      const inputMap = {
+        brand: document.getElementById('field_brand').value.trim(),
+        product_name: document.getElementById('field_product').value.trim(),
+        cas_number: document.getElementById('field_cas').value.trim(),
+        batch_number: document.getElementById('field_batch').value.trim(),
+        purity: document.getElementById('field_purity').value.trim(),
+        expiry_date: document.getElementById('field_expiry').value.trim(),
+        amount: document.getElementById('field_amount').value.trim(),
+        molecular_weight: document.getElementById('field_mw').value.trim(),
+        storage_condition: document.getElementById('field_storage').value.trim(),
+        notes: document.getElementById('field_notes').value.trim()
+      };
+
+      const keys = Object.keys(inputMap);
+      const hasContent = Object.values(inputMap).some(v => v);
+
+      keys.forEach(k => {
+        if (!task.extractedData.fields) task.extractedData.fields = {};
+        if (!task.extractedData.fields[k]) {
+          task.extractedData.fields[k] = { ai_value: '', user_value: '', final_value: '', modified: false, confidence: 'high', evidence: '', page: 1 };
         }
+        const f = task.extractedData.fields[k];
+        const currentVal = inputMap[k];
+        f.user_value = currentVal;
+        f.final_value = currentVal;
+        // 如果有 AI 原值且使用者輸入與其不同，標註為已修正
+        f.modified = (f.ai_value && currentVal !== f.ai_value);
+
+        // 即時切換該欄位的「✏️ 已手動修正」標籤
+        const modId = k === 'product_name' ? 'product' : (k === 'batch_number' ? 'batch' : (k === 'cas_number' ? 'cas' : (k === 'expiry_date' ? 'expiry' : (k === 'molecular_weight' ? 'mw' : (k === 'storage_condition' ? 'storage' : k)))));
+        const modTag = document.getElementById(`mod_${modId}`);
+        if (modTag) {
+          modTag.style.display = f.modified ? 'inline-block' : 'none';
+          if (f.modified) modTag.title = `AI 原始辨識值: ${f.ai_value}`;
+        }
+      });
+
+      if (hasContent && task.status !== 'processing' && task.status !== 'error') {
+        task.status = 'completed';
         renderQueue();
         updateTaskStatusBanner(task);
       }
@@ -1909,10 +2129,13 @@ Return pure JSON only.`;
             parsedData = rawText;
           }
 
-          if (res.status === 503 && attempt < maxRetries) {
+          if ((res.status === 503 || res.status === 429) && attempt < maxRetries) {
             attempt++;
-            showToast(`⚠️ Google 伺服器流量高峰 (503)，等待 2 秒進行第 ${attempt} 次重試...`, 'info');
-            await new Promise(r => setTimeout(r, 2000 * attempt));
+            const baseDelay = 1500 * Math.pow(2, attempt);
+            const jitter = Math.floor(Math.random() * 600);
+            const totalWait = baseDelay + jitter;
+            showToast(`⚠️ 伺服器流量高峰 (${res.status})，退避等待 ${(totalWait/1000).toFixed(1)} 秒重試 (${attempt}/${maxRetries})...`, 'info');
+            await new Promise(r => setTimeout(r, totalWait));
             continue;
           }
           break;
@@ -1947,12 +2170,13 @@ Return pure JSON only.`;
           throw new Error(`模型輸出 JSON 解析失敗: ${e.message}`);
         }
 
-        task.extractedData = result;
+        const normalized = normalizeExtractedData(result);
+        task.extractedData = normalized;
         task.status = 'completed';
         renderQueue();
-        fillFormFields(result);
+        fillFormFields(normalized);
         updateTaskStatusBanner(task);
-        showToast(`🎉 ${task.name} 辨識成功！`, 'success');
+        showToast(`🎉 ${task.name} 數據提取成功！請比對左側文件進行品保查核`, 'success');
 
       } catch (err) {
         console.error("辨識錯誤:", err);
@@ -2029,64 +2253,212 @@ Return pure JSON only.`;
       });
     }
 
-    // 表單填寫與自訂修改
+    // 表單填寫與自訂修改 (支援 Evidence 證據、出處頁碼、修正標籤與品保建議)
     function fillFormFields(data) {
-      document.getElementById('field_brand').value = data.brand || '';
-      document.getElementById('field_product').value = data.product_name || '';
-      document.getElementById('field_cas').value = data.cas_number || '';
-      document.getElementById('field_batch').value = data.batch_number || '';
-      document.getElementById('field_purity').value = data.purity || '';
-      document.getElementById('field_expiry').value = data.expiry_date || '';
-      document.getElementById('field_amount').value = data.amount || '';
-      document.getElementById('field_mw').value = data.molecular_weight || '';
-      document.getElementById('field_storage').value = data.storage_condition || '';
-      document.getElementById('field_notes').value = data.notes || '';
+      if (!data) return;
 
-      setJudgment(data.judgment || 'PASS');
+      const fieldConfigs = [
+        { key: 'brand', input: 'field_brand', badge: 'badge_brand', meta: 'meta_brand', ev: 'ev_brand', pg: 'pg_brand', mod: 'mod_brand' },
+        { key: 'product_name', input: 'field_product', badge: 'badge_product', meta: 'meta_product', ev: 'ev_product', pg: 'pg_product', mod: 'mod_product' },
+        { key: 'cas_number', input: 'field_cas', badge: 'badge_cas', meta: 'meta_cas', ev: 'ev_cas', pg: 'pg_cas', mod: 'mod_cas' },
+        { key: 'batch_number', input: 'field_batch', badge: 'badge_batch', meta: 'meta_batch', ev: 'ev_batch', pg: 'pg_batch', mod: 'mod_batch' },
+        { key: 'purity', input: 'field_purity', badge: 'badge_purity', meta: 'meta_purity', ev: 'ev_purity', pg: 'pg_purity', mod: 'mod_purity' },
+        { key: 'expiry_date', input: 'field_expiry', badge: 'badge_expiry', meta: 'meta_expiry', ev: 'ev_expiry', pg: 'pg_expiry', mod: 'mod_expiry' },
+        { key: 'amount', input: 'field_amount', badge: 'badge_amount', meta: 'meta_amount', ev: 'ev_amount', pg: 'pg_amount', mod: 'mod_amount' },
+        { key: 'molecular_weight', input: 'field_mw', badge: 'badge_mw', meta: 'meta_mw', ev: 'ev_mw', pg: 'pg_mw', mod: 'mod_mw' },
+        { key: 'storage_condition', input: 'field_storage', badge: 'badge_storage', meta: 'meta_storage', ev: 'ev_storage', pg: 'pg_storage', mod: 'mod_storage' }
+      ];
+
+      fieldConfigs.forEach(cfg => {
+        let f = null;
+        if (data.fields && data.fields[cfg.key]) {
+          f = data.fields[cfg.key];
+        } else {
+          const val = data[cfg.key] || '';
+          f = { final_value: val, user_value: val, ai_value: val, confidence: 'high', evidence: '', page: 1, modified: false };
+        }
+
+        const inputEl = document.getElementById(cfg.input);
+        if (inputEl) inputEl.value = f.user_value || f.final_value || '';
+
+        // Confidence 標籤更新
+        const badgeEl = document.getElementById(cfg.badge);
+        if (badgeEl) {
+          const conf = (f.confidence || 'high').toLowerCase();
+          badgeEl.className = `confidence-badge conf-${conf === 'medium' ? 'mid' : (conf === 'low' ? 'low' : 'high')}`;
+          badgeEl.innerText = conf.toUpperCase();
+        }
+
+        // Evidence 原文證據與出處頁碼、手動修訂標籤
+        const metaRow = document.getElementById(cfg.meta);
+        const evTag = document.getElementById(cfg.ev);
+        const pgTag = document.getElementById(cfg.pg);
+        const modTag = document.getElementById(cfg.mod);
+
+        if (metaRow) {
+          if (f.evidence || f.modified) {
+            metaRow.style.display = 'flex';
+            if (evTag) evTag.innerText = `📄 原文：${f.evidence || '無原文標註'}`;
+            if (pgTag) pgTag.innerText = `P.${f.page || 1}`;
+            if (modTag) {
+              modTag.style.display = f.modified ? 'inline-block' : 'none';
+              if (f.modified) modTag.title = `AI 原始辨識值: ${f.ai_value}`;
+            }
+          } else {
+            metaRow.style.display = 'none';
+          }
+        }
+      });
+
+      // 備註欄
+      const notesVal = data.fields?.notes?.user_value || data.fields?.notes?.final_value || data.notes || '';
+      const notesEl = document.getElementById('field_notes');
+      if (notesEl) notesEl.value = notesVal;
+
+      // AI 建議與備註
+      const aiSugBadge = document.getElementById('aiSuggestionBadge');
+      const aiReasonEl = document.getElementById('aiReasonText');
+      const aiRev = data.ai_review || {};
+      if (aiSugBadge) {
+        const sug = (aiRev.ai_suggestion || 'REVIEW').toUpperCase();
+        aiSugBadge.innerText = `AI 建議: ${sug === 'PASS' ? '合格' : (sug === 'FAIL' ? '不符合' : '待查核 (Review)')}`;
+      }
+      if (aiReasonEl) {
+        if (aiRev.reason) {
+          aiReasonEl.innerText = `🔍 AI 判定備註: ${aiRev.reason}`;
+          aiReasonEl.style.display = 'block';
+        } else {
+          aiReasonEl.style.display = 'none';
+        }
+      }
+
+      // 實驗室品保查核判定 (預設尚未查核)
+      setJudgment(data.judgment || 'UNREVIEWED');
+
+      // 品保簽核狀態
+      const chk = document.getElementById('chkHumanVerified');
+      const tsEl = document.getElementById('verifyTimestamp');
+      if (chk) chk.checked = !!data.human_verified;
+      if (tsEl) tsEl.innerText = data.human_verified ? `已於 ${data.verified_at || '剛才'} 完成品保簽核` : '尚未簽核';
     }
 
     function clearFormFields() {
       ['field_brand','field_product','field_cas','field_batch','field_purity','field_expiry','field_amount','field_mw','field_storage','field_notes'].forEach(id => {
-        document.getElementById(id).value = '';
+        const el = document.getElementById(id);
+        if (el) el.value = '';
       });
-      setJudgment('PASS');
+
+      ['brand','product','cas','batch','purity','expiry','amount','mw','storage'].forEach(id => {
+        const meta = document.getElementById(`meta_${id}`);
+        if (meta) meta.style.display = 'none';
+        const mod = document.getElementById(`mod_${id}`);
+        if (mod) mod.style.display = 'none';
+      });
+
+      const aiReasonEl = document.getElementById('aiReasonText');
+      if (aiReasonEl) aiReasonEl.style.display = 'none';
+
+      const aiSugBadge = document.getElementById('aiSuggestionBadge');
+      if (aiSugBadge) aiSugBadge.innerText = 'AI 建議: 待查核';
+
+      const chk = document.getElementById('chkHumanVerified');
+      if (chk) chk.checked = false;
+      const tsEl = document.getElementById('verifyTimestamp');
+      if (tsEl) tsEl.innerText = '尚未簽核';
+
+      setJudgment('UNREVIEWED');
     }
 
     function setJudgment(val) {
-      const v = (val || 'PASS').toUpperCase();
-      ['judgePass', 'judgeBorder', 'judgeFail'].forEach(id => {
-        document.getElementById(id).className = 'judgment-option';
+      const v = (val || 'UNREVIEWED').toUpperCase();
+      ['judgeUnreviewed', 'judgeBorder', 'judgePass', 'judgeFail'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.className = 'judgment-option';
       });
 
       if (v.includes('PASS') || v.includes('合格')) {
-        document.getElementById('judgePass').className = 'judgment-option selected-pass';
-      } else if (v.includes('BORDER') || v.includes('REVIEW') || v.includes('風險')) {
-        document.getElementById('judgeBorder').className = 'judgment-option selected-border';
+        const el = document.getElementById('judgePass');
+        if (el) el.className = 'judgment-option selected-pass';
+      } else if (v.includes('BORDER') || v.includes('REVIEW') || v.includes('覆核') || v.includes('風險')) {
+        const el = document.getElementById('judgeBorder');
+        if (el) el.className = 'judgment-option selected-border';
+      } else if (v.includes('FAIL') || v.includes('不合格')) {
+        const el = document.getElementById('judgeFail');
+        if (el) el.className = 'judgment-option selected-fail';
       } else {
-        document.getElementById('judgeFail').className = 'judgment-option selected-fail';
+        const el = document.getElementById('judgeUnreviewed');
+        if (el) el.className = 'judgment-option selected-unreviewed';
+      }
+
+      if (currentTaskId) {
+        const task = tasks.find(t => t.id === currentTaskId);
+        if (task && task.extractedData) {
+          task.extractedData.judgment = getSelectedJudgment();
+        }
       }
     }
 
     function getSelectedJudgment() {
-      if (document.getElementById('judgePass').classList.contains('selected-pass')) return 'PASS';
-      if (document.getElementById('judgeBorder').classList.contains('selected-border')) return 'BORDERLINE';
-      return 'FAIL';
+      if (document.getElementById('judgePass')?.classList.contains('selected-pass')) return 'PASS';
+      if (document.getElementById('judgeBorder')?.classList.contains('selected-border')) return 'REVIEW';
+      if (document.getElementById('judgeFail')?.classList.contains('selected-fail')) return 'FAIL';
+      return 'UNREVIEWED';
+    }
+
+    function toggleHumanVerification() {
+      const chk = document.getElementById('chkHumanVerified');
+      const tsEl = document.getElementById('verifyTimestamp');
+      const isChecked = chk ? chk.checked : false;
+      const timeStr = new Date().toLocaleTimeString();
+
+      if (tsEl) {
+        tsEl.innerText = isChecked ? `已於 ${timeStr} 完成品保簽核` : '尚未簽核';
+      }
+
+      if (currentTaskId) {
+        const task = tasks.find(t => t.id === currentTaskId);
+        if (task && task.extractedData) {
+          task.extractedData.human_verified = isChecked;
+          task.extractedData.verified_at = isChecked ? `${new Date().toLocaleDateString()} ${timeStr}` : '';
+          if (isChecked && task.extractedData.judgment === 'UNREVIEWED') {
+            setJudgment('PASS');
+          }
+        }
+      }
     }
 
     function getCurrentFormRecord() {
+      const task = tasks.find(t => t.id === currentTaskId);
+      const data = task?.extractedData;
+
+      const getVal = (k, id) => document.getElementById(id)?.value.trim() || data?.fields?.[k]?.final_value || data?.[k] || '';
+      const getEv = (k) => data?.fields?.[k]?.evidence || '';
+
+      const chk = document.getElementById('chkHumanVerified');
+      const isVerified = chk ? chk.checked : (data?.human_verified || false);
+      const verifyTime = data?.verified_at || (isVerified ? new Date().toLocaleString() : '未簽核');
+
+      const modifiedFields = ['brand','product_name','cas_number','batch_number','purity','expiry_date','amount','molecular_weight','storage_condition']
+        .filter(k => data?.fields?.[k]?.modified)
+        .map(k => `${k}: AI[${data.fields[k].ai_value}]→人工[${data.fields[k].user_value}]`);
+
       return {
-        brand: document.getElementById('field_brand').value.trim(),
-        product_name: document.getElementById('field_product').value.trim(),
-        cas_number: document.getElementById('field_cas').value.trim(),
-        batch_number: document.getElementById('field_batch').value.trim(),
-        purity: document.getElementById('field_purity').value.trim(),
-        expiry_date: document.getElementById('field_expiry').value.trim(),
-        amount: document.getElementById('field_amount').value.trim(),
-        molecular_weight: document.getElementById('field_mw').value.trim(),
-        storage_condition: document.getElementById('field_storage').value.trim(),
+        brand: getVal('brand', 'field_brand'),
+        product_name: getVal('product_name', 'field_product'),
+        cas_number: getVal('cas_number', 'field_cas'),
+        batch_number: getVal('batch_number', 'field_batch'),
+        purity: getVal('purity', 'field_purity'),
+        expiry_date: getVal('expiry_date', 'field_expiry'),
+        amount: getVal('amount', 'field_amount'),
+        molecular_weight: getVal('molecular_weight', 'field_mw'),
+        storage_condition: getVal('storage_condition', 'field_storage'),
         judgment: getSelectedJudgment(),
-        notes: document.getElementById('field_notes').value.trim(),
-        file_name: tasks.find(t => t.id === currentTaskId)?.name || 'COA_Document'
+        human_verified: isVerified ? `已簽核 (${verifyTime})` : '未簽核',
+        evidence_cas: getEv('cas_number'),
+        evidence_purity: getEv('purity'),
+        modified_trail: modifiedFields.length > 0 ? modifiedFields.join('; ') : '無修訂 (AI原值)',
+        notes: document.getElementById('field_notes')?.value.trim() || '',
+        file_name: task?.name || 'COA_Document'
       };
     }
 
@@ -2104,18 +2476,29 @@ Return pure JSON only.`;
       const records = [];
       tasks.forEach(t => {
         if (t.extractedData) {
+          const d = t.extractedData;
+          const getVal = (k) => d.fields?.[k]?.final_value || d[k] || '';
+          const getEv = (k) => d.fields?.[k]?.evidence || '';
+          const modifiedFields = ['brand','product_name','cas_number','batch_number','purity','expiry_date','amount','molecular_weight','storage_condition']
+            .filter(k => d.fields?.[k]?.modified)
+            .map(k => `${k}: AI[${d.fields[k].ai_value}]→人工[${d.fields[k].user_value}]`);
+
           records.push({
-            brand: t.extractedData.brand || '',
-            product_name: t.extractedData.product_name || '',
-            cas_number: t.extractedData.cas_number || '',
-            batch_number: t.extractedData.batch_number || '',
-            purity: t.extractedData.purity || '',
-            expiry_date: t.extractedData.expiry_date || '',
-            amount: t.extractedData.amount || '',
-            molecular_weight: t.extractedData.molecular_weight || '',
-            storage_condition: t.extractedData.storage_condition || '',
-            judgment: t.extractedData.judgment || 'PASS',
-            notes: t.extractedData.notes || '',
+            brand: getVal('brand'),
+            product_name: getVal('product_name'),
+            cas_number: getVal('cas_number'),
+            batch_number: getVal('batch_number'),
+            purity: getVal('purity'),
+            expiry_date: getVal('expiry_date'),
+            amount: getVal('amount'),
+            molecular_weight: getVal('molecular_weight'),
+            storage_condition: getVal('storage_condition'),
+            judgment: d.judgment || 'UNREVIEWED',
+            human_verified: d.human_verified ? `已簽核 (${d.verified_at || '完成'})` : '未簽核',
+            evidence_cas: getEv('cas_number'),
+            evidence_purity: getEv('purity'),
+            modified_trail: modifiedFields.length > 0 ? modifiedFields.join('; ') : '無修訂 (AI原值)',
+            notes: d.fields?.notes?.final_value || d.notes || '',
             file_name: t.name
           });
         }
@@ -2131,7 +2514,12 @@ Return pure JSON only.`;
     }
 
     function downloadCsv(dataList, filename) {
-      const headers = ["廠牌 (Brand)", "產品品名 (Product Name)", "CAS Number", "生產批號 (Batch No.)", "純度 (Purity)", "有效期限 (Expiry)", "包裝規格 (Amount)", "分子量 (MW)", "儲存條件 (Storage)", "判定 (Judgment)", "檢驗備註 (Notes)", "原始檔名 (Source File)"];
+      const headers = [
+        "廠牌 (Brand)", "產品品名 (Product Name)", "CAS Number", "生產批號 (Batch No.)",
+        "純度 (Purity)", "有效期限 (Expiry)", "包裝規格 (Amount)", "分子量 (MW)", "儲存條件 (Storage)",
+        "品保判定 (QA Judgment)", "人工核簽 (Verified)", "CAS原文證據 (Evidence)", "純度原文證據 (Evidence)",
+        "人工修訂軌跡 (Audit Trail)", "檢驗備註 (Notes)", "原始檔名 (Source File)"
+      ];
       
       let csvContent = "\uFEFF"; // 加入 UTF-8 BOM
       csvContent += headers.join(",") + "\r\n";
@@ -2148,6 +2536,10 @@ Return pure JSON only.`;
           `"${(item.molecular_weight || '').replace(/"/g, '""')}"`,
           `"${(item.storage_condition || '').replace(/"/g, '""')}"`,
           `"${(item.judgment || '').replace(/"/g, '""')}"`,
+          `"${(item.human_verified || '').replace(/"/g, '""')}"`,
+          `"${(item.evidence_cas || '').replace(/"/g, '""')}"`,
+          `"${(item.evidence_purity || '').replace(/"/g, '""')}"`,
+          `"${(item.modified_trail || '').replace(/"/g, '""')}"`,
           `"${(item.notes || '').replace(/"/g, '""')}"`,
           `"${(item.file_name || '').replace(/"/g, '""')}"`
         ];
@@ -2178,18 +2570,31 @@ Return pure JSON only.`;
       } else {
         records = tasks.filter(t => t.extractedData).map(t => {
           const d = t.extractedData;
+          const getVal = (k) => d.fields?.[k]?.final_value || d[k] || '';
+          const getEv = (k) => d.fields?.[k]?.evidence || '';
+          const modifiedFields = ['brand','product_name','cas_number','batch_number','purity','expiry_date','amount','molecular_weight','storage_condition']
+            .filter(k => d.fields?.[k]?.modified)
+            .map(k => `${k}: AI[${d.fields[k].ai_value}]→人工[${d.fields[k].user_value}]`);
+
+          const casEv = getEv('cas_number');
+          const purEv = getEv('purity');
+          const evSummary = [casEv ? `CAS: ${casEv}` : '', purEv ? `純度: ${purEv}` : ''].filter(Boolean).join(' | ') || '無原文標註';
+
           return {
-            brand: d.brand || '',
-            product_name: d.product_name || '',
-            cas_number: d.cas_number || '',
-            batch_number: d.batch_number || '',
-            purity: d.purity || '',
-            expiry_date: d.expiry_date || '',
-            amount: d.amount || '',
-            molecular_weight: d.molecular_weight || '',
-            storage_condition: d.storage_condition || '',
-            judgment: d.judgment || 'PASS',
-            notes: d.notes || ''
+            brand: getVal('brand'),
+            product_name: getVal('product_name'),
+            cas_number: getVal('cas_number'),
+            batch_number: getVal('batch_number'),
+            purity: getVal('purity'),
+            expiry_date: getVal('expiry_date'),
+            amount: getVal('amount'),
+            molecular_weight: getVal('molecular_weight'),
+            storage_condition: getVal('storage_condition'),
+            judgment: d.judgment || 'UNREVIEWED',
+            human_verified: d.human_verified ? `已簽核 (${d.verified_at || '完成'})` : '未簽核',
+            evidence_summary: evSummary,
+            modified_trail: modifiedFields.length > 0 ? modifiedFields.join('; ') : '無修訂 (AI原值)',
+            notes: d.fields?.notes?.final_value || d.notes || ''
           };
         });
         if (records.length === 0) {
@@ -2198,8 +2603,23 @@ Return pure JSON only.`;
         }
       }
 
-      const headers = ["廠牌 (Brand)", "產品品名 (Product Name)", "CAS Number", "生產批號 (Batch No.)", "純度 (Purity)", "有效期限 (Expiry)", "包裝規格 (Amount)", "分子量 (MW)", "儲存條件 (Storage)", "判定 (Judgment)", "檢驗備註 (Notes)"];
-      const keys = ["brand", "product_name", "cas_number", "batch_number", "purity", "expiry_date", "amount", "molecular_weight", "storage_condition", "judgment", "notes"];
+      // 若為單筆，確保有 evidence_summary
+      if (isSingle && records[0]) {
+        const r = records[0];
+        const evSummary = [r.evidence_cas ? `CAS: ${r.evidence_cas}` : '', r.evidence_purity ? `純度: ${r.evidence_purity}` : ''].filter(Boolean).join(' | ') || '無原文標註';
+        r.evidence_summary = evSummary;
+      }
+
+      const headers = [
+        "廠牌 (Brand)", "產品品名 (Product Name)", "CAS Number", "生產批號 (Batch No.)",
+        "純度 (Purity)", "有效期限 (Expiry)", "包裝規格 (Amount)", "分子量 (MW)", "儲存條件 (Storage)",
+        "品保判定 (QA Judgment)", "人工核簽 (Verified)", "原文證據摘要 (Evidence)", "人工修訂軌跡 (Audit Trail)", "檢驗備註 (Notes)"
+      ];
+      const keys = [
+        "brand", "product_name", "cas_number", "batch_number",
+        "purity", "expiry_date", "amount", "molecular_weight", "storage_condition",
+        "judgment", "human_verified", "evidence_summary", "modified_trail", "notes"
+      ];
 
       // 1. 生成 HTML <table> (Notion 貼入 Table 與 Database 辨識分欄的最核心標準格式)
       let htmlTable = '<table border="1"><thead><tr>';
@@ -2235,7 +2655,7 @@ Return pure JSON only.`;
         }
 
         const countText = isSingle ? '當前 1 筆' : `全部 ${records.length} 筆`;
-        showToast(`📋 已複製 ${countText} Notion 表格！在 Notion 空白處或資料庫直接按 Ctrl+V 即可自動對齊分欄`, 'success');
+        showToast(`📋 已複製 ${countText} Notion 表格 (含品保判定、核簽紀錄與原文證據)！在 Notion 直接按 Ctrl+V 即可自動精準對齊`, 'success');
       } catch (err) {
         console.warn('ClipboardItem 寫入受限，改用純文字 TSV fallback:', err);
         try {
