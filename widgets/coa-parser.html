@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>COA 檢驗報告書 AI 智慧辨識中心 (Notion Lab Widget)</title>
+  
+  <!-- 引入 Mozilla PDF.js 支援純前端 PDF 頁面預覽與解析 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    if (window.pdfjsLib) {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+  </script>
+
+  <style>
+    :root {
+      --bg-color: #121212;
+      --panel-bg: #1c1c1c;
+      --card-bg: #232323;
+      --card-hover: #2a2a2a;
+      --border-color: #333333;
+      --text-main: #f0f0f0;
+      --text-sub: #a0a0a0;
+      --text-muted: #666666;
+      --accent: #238636;
+      --accent-hover: #2ea043;
+      --primary: #1f6feb;
+      --primary-hover: #388bfd;
+      --warning: #d29922;
+      --danger: #f85149;
+      --input-bg: #161616;
+      --badge-bg: rgba(255, 255, 255, 0.08);
+      --shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+      --radius: 10px;
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg-color: #f6f8fa;
+        --panel-bg: #ffffff;
+        --card-bg: #ffffff;
+        --card-hover: #f3f4f6;
+        --border-color: #d0d7de;
+        --text-main: #24292f;
+        --text-sub: #57606a;
+        --text-muted: #8c959f;
+        --accent: #1a7f37;
+        --accent-hover: #1f883d;
+        --primary: #0969da;
+        --primary-hover: #218bff;
+        --warning: #9a6700;
+        --danger: #cf222e;
+        --input-bg: #ffffff;
+        --badge-bg: rgba(0, 0, 0, 0.05);
+        --shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      padding: 8px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex: 1;
+    }
+
+    /* 頂部標頭與 API 設定條 */
+    .top-header {
+      background-color: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      box-shadow: var(--shadow);
+    }
+
+    .header-branding {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .header-title {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .header-desc {
+      font-size: 11px;
+      color: var(--text-sub);
+    }
+
+    .api-config-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .api-key-input {
+      padding: 6px 10px;
+      background-color: var(--input-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 11px;
+      color: var(--text-main);
+      width: 220px;
+      outline: none;
+    }
+
+    .api-key-input:focus {
+      border-color: var(--primary);
+    }
+
+    .btn {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 6px;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s ease;
+      text-decoration: none;
+    }
+
+    .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+
+    .btn-primary { background-color: var(--primary); color: #fff; }
+    .btn-accent { background-color: var(--accent); color: #fff; }
+    .btn-secondary {
+      background-color: var(--badge-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+    }
+    .btn-danger { background-color: var(--danger); color: #fff; }
+
+    /* 批次任務佇列欄 */
+    .queue-bar {
+      background-color: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+
+    .queue-label {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--text-sub);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .queue-items-container {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex: 1;
+      overflow-x: auto;
+    }
+
+    .queue-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .queue-pill.active {
+      border-color: var(--primary);
+      background-color: rgba(31, 111, 235, 0.15);
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    .queue-pill:hover {
+      background-color: var(--card-hover);
+    }
+
+    .queue-status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+    }
+
+    .status-pending { background-color: var(--text-muted); }
+    .status-processing { background-color: var(--warning); animation: pulse 1s infinite alternate; }
+    .status-completed { background-color: var(--accent); }
+    .status-error { background-color: var(--danger); }
+
+    @keyframes pulse { from { opacity: 0.4; } to { opacity: 1; } }
+
+    /* 主工作區 (左右雙欄 / 手機 RWD) */
+    .main-workspace {
+      display: grid;
+      grid-template-columns: 1fr 1.15fr;
+      gap: 12px;
+      flex: 1;
+      min-height: 580px;
+    }
+
+    /* 手機模式切換頁籤 (平時隱藏，手機寬度顯示) */
+    .mobile-tab-nav {
+      display: none;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 2px;
+    }
+
+    .tab-btn {
+      padding: 8px;
+      text-align: center;
+      background-color: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-sub);
+      cursor: pointer;
+    }
+
+    .tab-btn.active {
+      background-color: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+
+    /* 左側：文件上傳與預覽面板 */
+    .preview-panel {
+      background-color: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+
+    .panel-header {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: linear-gradient(135deg, var(--card-bg), var(--panel-bg));
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .panel-title {
+      font-size: 12.5px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* 拖曳上傳放置區 */
+    .drop-zone {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      border: 2px dashed var(--border-color);
+      border-radius: 8px;
+      margin: 12px;
+      cursor: pointer;
+      text-align: center;
+      gap: 10px;
+      transition: all 0.2s ease;
+      background-color: rgba(255, 255, 255, 0.01);
+    }
+
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: var(--primary);
+      background-color: rgba(31, 111, 235, 0.05);
+    }
+
+    .drop-icon { font-size: 38px; }
+    .drop-prompt { font-size: 13px; font-weight: 600; }
+    .drop-sub { font-size: 11px; color: var(--text-sub); line-height: 1.5; }
+
+    /* 實體預覽容器 */
+    .viewer-container {
+      display: none;
+      flex: 1;
+      position: relative;
+      background-color: #0d0d0d;
+      overflow: auto;
+      align-items: center;
+      justify-content: center;
+      min-height: 400px;
+    }
+
+    .viewer-image {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      transition: transform 0.2s ease;
+      cursor: grab;
+    }
+
+    .pdf-canvas {
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+      max-width: 100%;
+    }
+
+    /* 右側：結構化核對表單面板 */
+    .form-panel {
+      background-color: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+
+    .form-content {
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .grid-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .grid-3col {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+    }
+
+    .field-card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      transition: border-color 0.2s;
+    }
+
+    .field-card:focus-within {
+      border-color: var(--primary);
+    }
+
+    .field-label-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .field-label {
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--text-sub);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .confidence-badge {
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .conf-high { background-color: rgba(46, 160, 67, 0.2); color: var(--accent); }
+    .conf-med { background-color: rgba(210, 153, 34, 0.2); color: var(--warning); }
+    .conf-low { background-color: rgba(248, 81, 73, 0.2); color: var(--danger); }
+
+    .field-input {
+      background-color: var(--input-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 5px;
+      padding: 6px 8px;
+      font-size: 12px;
+      color: var(--text-main);
+      outline: none;
+      width: 100%;
+    }
+
+    .field-input:focus {
+      border-color: var(--primary);
+    }
+
+    .judgment-selector {
+      display: flex;
+      gap: 6px;
+      margin-top: 2px;
+    }
+
+    .judgment-option {
+      flex: 1;
+      padding: 6px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      background-color: var(--input-bg);
+      color: var(--text-sub);
+      font-size: 11px;
+      font-weight: 600;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .judgment-option.selected-pass {
+      background-color: rgba(46, 160, 67, 0.2);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .judgment-option.selected-fail {
+      background-color: rgba(248, 81, 73, 0.2);
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+
+    .judgment-option.selected-border {
+      background-color: rgba(210, 153, 34, 0.2);
+      border-color: var(--warning);
+      color: var(--warning);
+    }
+
+    /* 底部操作工具列 */
+    .form-footer {
+      padding: 10px 14px;
+      border-top: 1px solid var(--border-color);
+      background-color: var(--card-bg);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    /* Toast 通知 */
+    .toast-container {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #333333;
+      color: #fff;
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+      z-index: 9999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+
+    .toast-container.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(-4px);
+    }
+
+    .toast-danger { background-color: var(--danger); }
+    .toast-success { background-color: var(--accent); }
+
+    /* RWD 手機版響應式適配 */
+    @media (max-width: 900px) {
+      .main-workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .mobile-tab-nav {
+        display: grid;
+      }
+
+      .preview-panel.mobile-hidden, .form-panel.mobile-hidden {
+        display: none;
+      }
+
+      .grid-2col, .grid-3col {
+        grid-template-columns: 1fr;
+      }
+
+      .api-key-input {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- 頂部標頭與 API KEY 設定 -->
+    <header class="top-header">
+      <div class="header-branding">
+        <span style="font-size: 24px;">🔬</span>
+        <div>
+          <h1 class="header-title">COA 檢驗報告書 AI 智慧辨識中心</h1>
+          <p class="header-desc">支援 PDF / JPG 批次解析・手機拍照現場驗收・一鍵匯出 CSV 檔</p>
+        </div>
+      </div>
+      <div class="api-config-bar">
+        <input type="password" id="geminiApiKey" class="api-key-input" placeholder="貼上您的 Gemini API Key (BYOK)...">
+        <button class="btn btn-primary" onclick="saveApiKey()">儲存金鑰</button>
+        <button class="btn btn-secondary" onclick="testApiConnection()">⚡ 測試連線</button>
+      </div>
+    </header>
+
+    <!-- 批次任務佇列列 -->
+    <section class="queue-bar">
+      <div class="queue-label">
+        <span>📑 文件佇列</span>
+        <span id="queueCountBadge" style="font-size: 10px; background: var(--badge-bg); padding: 1px 6px; border-radius: 10px;">(0)</span>:
+      </div>
+      <div class="queue-items-container" id="queueItemsList">
+        <span style="font-size: 11px; color: var(--text-muted);">尚未加入文件，請拖曳 PDF/圖片至下方或點擊拍照。</span>
+      </div>
+      <button class="btn btn-accent" id="btnBatchRun" onclick="processAllPending()" style="flex-shrink:0;">⚡ 批次辨識全部</button>
+      <button class="btn btn-secondary" onclick="clearQueue()" style="flex-shrink:0;">🗑️ 清空佇列</button>
+    </section>
+
+    <!-- 手機版頁籤切換 (Mobile Only) -->
+    <div class="mobile-tab-nav">
+      <button class="tab-btn active" id="tabBtnPreview" onclick="switchMobileTab('preview')">📄 文件預覽</button>
+      <button class="tab-btn" id="tabBtnForm" onclick="switchMobileTab('form')">📝 提取結果與核對</button>
+    </div>
+
+    <!-- 主工作區 -->
+    <main class="main-workspace">
+      <!-- 左側：上傳與文件預覽區 -->
+      <section class="preview-panel" id="previewPanel">
+        <div class="panel-header">
+          <span class="panel-title">
+            <span>📄</span>
+            <span id="currentFileName">尚未載入文件</span>
+          </span>
+          <div style="display: flex; gap: 6px;">
+            <input type="file" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png" style="display:none;" onchange="handleFileSelect(event)">
+            <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;" onchange="handleFileSelect(event)">
+            <button class="btn btn-secondary" onclick="document.getElementById('fileInput').click()">📁 選取檔案</button>
+            <button class="btn btn-secondary" onclick="document.getElementById('cameraInput').click()">📷 手機拍照</button>
+            <button class="btn btn-secondary" id="btnReplacePdf" onclick="replaceWithPdf()" style="display:none;">🔄 替換正式 PDF</button>
+          </div>
+        </div>
+
+        <!-- 拖曳上傳提示區 -->
+        <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+          <div class="drop-icon">📤</div>
+          <div class="drop-prompt">拖曳 COA 文件至此處，或點擊上傳</div>
+          <div class="drop-sub">
+            支援 <strong>多頁電子 PDF</strong>、<strong>JPG / PNG 掃描圖檔</strong><br>
+            手機直接開啟支援後置相機拍照即傳・純前端本機解析
+          </div>
+        </div>
+
+        <!-- 檔案實體預覽檢視器 -->
+        <div class="viewer-container" id="viewerContainer">
+          <img id="imageViewer" class="viewer-image" style="display:none;" alt="COA 預覽">
+          <canvas id="pdfCanvas" class="pdf-canvas" style="display:none;"></canvas>
+        </div>
+      </section>
+
+      <!-- 右側：AI 結構化核對表單 -->
+      <section class="form-panel" id="formPanel">
+        <div class="panel-header">
+          <span class="panel-title">
+            <span>🔍</span>
+            <span>AI 人機協同核對區 (9 大標準欄位)</span>
+          </span>
+          <div style="display: flex; gap: 6px;">
+            <button class="btn btn-primary" id="btnRunCurrent" onclick="processCurrentTask()">▶️ 辨識當前文件</button>
+          </div>
+        </div>
+
+        <div class="form-content">
+          <!-- 廠牌與品名 -->
+          <div class="grid-2col">
+            <div class="field-card">
+              <div class="field-label-row">
+                <span class="field-label">1. 製造廠牌 (Brand)</span>
+                <span id="badge_brand" class="confidence-badge conf-high">HIGH</span>
+              </div>
+              <input type="text" id="field_brand" class="field-input" placeholder="例如: Sigma-Aldrich, Merck, USP...">
+            </div>
+            <div class="field-card">
+              <div class="field-label-row">
+                <span class="field-label">2. 產品品名 (Product Name)</span>
+                <span id="badge_product" class="confidence-badge conf-high">HIGH</span>
+              </div>
+              <input type="text" id="field_product" class="field-input" placeholder="標準品或化學原料名稱...">
+            </div>
+          </div>
+
+          <!-- CAS No. 與 生產批號 -->
+          <div class="grid-2col">
+            <div class="field-card">
+              <div class="field-label-row">
+                <span class="field-label">3. CAS Number</span>
+                <span id="badge_cas" class="confidence-badge conf-high">HIGH</span>
+              </div>
+              <input type="text" id="field_cas" class="field-input" placeholder="例如: 50-99-7, 58-08-2...">
+            </div>
+            <div class="field-card">
+              <div class="field-label-row">
+                <span class="field-label">4. 生產批號 (Batch / Lot No.)</span>
+                <span id="badge_batch" class="confidence-badge conf-high">HIGH</span>
+              </div>
+              <input type="text" id="field_batch" class="field-input" placeholder="檢驗批號或原廠 Lot No...">
+            </div>
+          </div>
+
+          <!-- 純度、有效期限與規格容量 -->
+          <div class="grid-3col">
+            <div class="field-card">
+              <div class="field-label-row">
+                <span class="field-label">5. 純度/含量 (Purity)</span>
+                <span id="badge_purity" class="confidence-badge conf-high">HIGH</span>
+              </div>
+              <input type="text" id="field_purity" class="field-input" placeholder="例如: 99.8 %">
+            </div>
+            <div class="field-card">
+              <div class="field-label-row">
+                <span class="field-label">6. 有效期限 (Expiry Date)</span>
+                <span id="badge_expiry" class="confidence-badge conf-high">HIGH</span>
+              </div>
+              <input type="text" id="field_expiry" class="field-input" placeholder="YYYY/MM/DD">
+            </div>
+            <div class="field-card">
+              <div class="field-label-row">
+                <span class="field-label">7. 包裝容量 (Amount)</span>
+                <span id="badge_amount" class="confidence-badge conf-high">HIGH</span>
+              </div>
+              <input type="text" id="field_amount" class="field-input" placeholder="例如: 100 mg, 1 g, 25 mL">
+            </div>
+          </div>
+
+          <!-- 分子量與儲存條件 -->
+          <div class="grid-2col">
+            <div class="field-card">
+              <div class="field-label-row">
+                <span class="field-label">8. 分子量 (Molecular Weight)</span>
+                <span id="badge_mw" class="confidence-badge conf-high">HIGH</span>
+              </div>
+              <input type="text" id="field_mw" class="field-input" placeholder="例如: 180.16 g/mol">
+            </div>
+            <div class="field-card">
+              <div class="field-label-row">
+                <span class="field-label">9. 儲存條件 (Storage)</span>
+                <span id="badge_storage" class="confidence-badge conf-high">HIGH</span>
+              </div>
+              <input type="text" id="field_storage" class="field-input" placeholder="例如: -20°C, 4°C, RT (室溫)">
+            </div>
+          </div>
+
+          <!-- 規格符合性判定 -->
+          <div class="field-card">
+            <div class="field-label-row">
+              <span class="field-label">10. 規格符合性判定 (QA/QC Judgment)</span>
+            </div>
+            <div class="judgment-selector">
+              <div class="judgment-option selected-pass" id="judgePass" onclick="setJudgment('PASS')">✅ 合格 (Pass)</div>
+              <div class="judgment-option" id="judgeBorder" onclick="setJudgment('BORDERLINE')">⚠️ 邊界風險 (Review)</div>
+              <div class="judgment-option" id="judgeFail" onclick="setJudgment('FAIL')">❌ 不合格 (Fail)</div>
+            </div>
+          </div>
+
+          <!-- 備註與原始脈絡 -->
+          <div class="field-card">
+            <span class="field-label">AI 辨識備註與重要項目摘要</span>
+            <input type="text" id="field_notes" class="field-input" placeholder="檢驗方法 (HPLC/GC)、外觀性狀或特定指標備註...">
+          </div>
+        </div>
+
+        <!-- 底部匯出與連動工具列 -->
+        <div class="form-footer">
+          <div style="font-size: 11px; color: var(--text-sub);">
+            ※ 確認無誤後可一鍵下載 CSV 存檔或複製至 Notion
+          </div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <button class="btn btn-secondary" onclick="copyNotionTable()">📋 複製為 Notion 格式</button>
+            <button class="btn btn-accent" onclick="exportCurrentCsv()">📥 下載當前 CSV</button>
+            <button class="btn btn-primary" onclick="exportAllCsv()">📦 匯出全部佇列 CSV</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toastMessage" class="toast-container"></div>
+
+  <script>
+    // 預設與狀態管理
+    let tasks = []; // 檔案佇列列表 [{id, file, name, size, type, dataUrl, status, extractedData}]
+    let currentTaskId = null;
+    let apiKey = "";
+    let toastTimer = null;
+    let currentPdfDoc = null;
+
+    const COA_PROMPT = `You are a professional chemical and food analytical laboratory Certificate of Analysis (COA) data extraction expert.
+Analyze the provided COA document image or PDF. Extract the chemical/raw material specifications into the following exact JSON format:
+{
+  "brand": "Manufacturer or brand name (e.g., Sigma-Aldrich, Merck, USP, TRC, Wako)",
+  "product_name": "Chemical name or standard substance name",
+  "cas_number": "Chemical Abstracts Service (CAS) Registry Number format (e.g. 50-99-7)",
+  "batch_number": "Lot or Batch identifier code",
+  "expiry_date": "Expiration or retest date normalized as YYYY/MM/DD",
+  "purity": "Assay or purity percentage (e.g. 99.8 %)",
+  "amount": "Packaging volume, weight or mass (e.g. 100 mg, 1 g)",
+  "molecular_weight": "Formula weight or MW (e.g. 180.16)",
+  "storage_condition": "Standard storage condition normalized to: -20°C, 4°C, or RT",
+  "judgment": "PASS, FAIL, or BORDERLINE based on specifications",
+  "notes": "Key remarks such as analytical technique (HPLC, NMR, Karl Fischer water %)",
+  "confidence": {
+    "brand": "high",
+    "product_name": "high",
+    "cas_number": "high",
+    "batch_number": "high",
+    "expiry_date": "high",
+    "purity": "high"
+  }
+}
+If any value is completely missing from the document, fill with "N/A".
+Return pure JSON only.`;
+
+    function init() {
+      // 讀取本地儲存的 Gemini API Key (BYOK)
+      try {
+        apiKey = localStorage.getItem('gemini_api_key_coa') || "";
+        if (apiKey) {
+          document.getElementById('geminiApiKey').value = apiKey;
+        }
+      } catch (e) {
+        console.warn("無法讀取 LocalStorage API Key");
+      }
+
+      setupDragAndDrop();
+    }
+
+    function showToast(message, type = 'info') {
+      const toast = document.getElementById('toastMessage');
+      toast.innerText = message;
+      toast.className = 'toast-container show';
+      if (type === 'danger') toast.classList.add('toast-danger');
+      if (type === 'success') toast.classList.add('toast-success');
+
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.className = 'toast-container';
+      }, 3500);
+    }
+
+    function saveApiKey() {
+      const val = document.getElementById('geminiApiKey').value.trim();
+      if (!val) {
+        showToast('請輸入有效的 Gemini API Key', 'danger');
+        return;
+      }
+      apiKey = val;
+      try {
+        localStorage.setItem('gemini_api_key_coa', apiKey);
+      } catch (e) {}
+      showToast('✅ API Key 已安全保存在本機瀏覽器', 'success');
+    }
+
+    async function testApiConnection() {
+      const key = document.getElementById('geminiApiKey').value.trim() || apiKey;
+      if (!key) {
+        showToast('請先輸入 API Key 再進行測試', 'danger');
+        return;
+      }
+
+      showToast('🔄 正在測試連線至 Google Gemini API...', 'info');
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
+      
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: "ping" }] }]
+          })
+        });
+
+        if (res.ok) {
+          showToast('🟢 連線成功！Gemini 2.5 Flash 已就緒', 'success');
+          apiKey = key;
+          try { localStorage.setItem('gemini_api_key_coa', apiKey); } catch(e){}
+        } else {
+          const err = await res.json();
+          throw new Error(err.error?.message || "HTTP " + res.status);
+        }
+      } catch (e) {
+        showToast('❌ 連線失敗: ' + e.message, 'danger');
+      }
+    }
+
+    // 拖曳上傳與檔案事件
+    function setupDragAndDrop() {
+      const zone = document.getElementById('dropZone');
+      ['dragenter', 'dragover'].forEach(name => {
+        zone.addEventListener(name, (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+      });
+      ['dragleave', 'drop'].forEach(name => {
+        zone.addEventListener(name, (e) => { e.preventDefault(); zone.classList.remove('dragover'); });
+      });
+      zone.addEventListener('drop', (e) => {
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          addFilesToQueue(e.dataTransfer.files);
+        }
+      });
+    }
+
+    function handleFileSelect(e) {
+      if (e.target.files && e.target.files.length > 0) {
+        addFilesToQueue(e.target.files);
+      }
+    }
+
+    function addFilesToQueue(fileList) {
+      let count = 0;
+      Array.from(fileList).forEach(file => {
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (['pdf', 'jpg', 'jpeg', 'png'].includes(ext)) {
+          const id = 'task_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+          const task = {
+            id: id,
+            file: file,
+            name: file.name,
+            size: (file.size / 1024).toFixed(1) + ' KB',
+            type: file.type || (ext === 'pdf' ? 'application/pdf' : 'image/jpeg'),
+            status: 'pending', // pending, processing, completed, error
+            extractedData: null
+          };
+          tasks.push(task);
+          count++;
+          if (!currentTaskId) {
+            selectTask(id);
+          }
+        }
+      });
+
+      renderQueue();
+      showToast(`已加入 ${count} 份文件至佇列`, 'success');
+    }
+
+    function renderQueue() {
+      const container = document.getElementById('queueItemsList');
+      document.getElementById('queueCountBadge').innerText = `(${tasks.length})`;
+
+      if (tasks.length === 0) {
+        container.innerHTML = `<span style="font-size: 11px; color: var(--text-muted);">尚未加入文件，請拖曳 PDF/圖片至下方或點擊拍照。</span>`;
+        return;
+      }
+
+      container.innerHTML = '';
+      tasks.forEach((t, idx) => {
+        const pill = document.createElement('div');
+        pill.className = `queue-pill ${t.id === currentTaskId ? 'active' : ''}`;
+        pill.onclick = () => selectTask(t.id);
+
+        let statusClass = 'status-pending';
+        if (t.status === 'processing') statusClass = 'status-processing';
+        if (t.status === 'completed') statusClass = 'status-completed';
+        if (t.status === 'error') statusClass = 'status-error';
+
+        pill.innerHTML = `
+          <span class="queue-status-dot ${statusClass}"></span>
+          <span title="${t.name}">#${idx+1} ${t.name.length > 15 ? t.name.substring(0,14)+'...' : t.name}</span>
+        `;
+        container.appendChild(pill);
+      });
+    }
+
+    function clearQueue() {
+      tasks = [];
+      currentTaskId = null;
+      currentPdfDoc = null;
+      renderQueue();
+      resetWorkspace();
+      showToast('已清空文件佇列', 'info');
+    }
+
+    function resetWorkspace() {
+      document.getElementById('currentFileName').innerText = '尚未載入文件';
+      document.getElementById('dropZone').style.display = 'flex';
+      document.getElementById('viewerContainer').style.display = 'none';
+      document.getElementById('btnReplacePdf').style.display = 'none';
+      clearFormFields();
+    }
+
+    function selectTask(taskId) {
+      currentTaskId = taskId;
+      renderQueue();
+      const task = tasks.find(t => t.id === taskId);
+      if (!task) return;
+
+      document.getElementById('currentFileName').innerText = task.name;
+      document.getElementById('dropZone').style.display = 'none';
+      document.getElementById('viewerContainer').style.display = 'flex';
+      document.getElementById('btnReplacePdf').style.display = 'inline-flex';
+
+      // 渲染預覽
+      renderFilePreview(task);
+
+      // 渲染既有數據
+      if (task.extractedData) {
+        fillFormFields(task.extractedData);
+      } else {
+        clearFormFields();
+      }
+    }
+
+    // 預覽渲染引擎 (支援 PDF.js 與 圖片)
+    function renderFilePreview(task) {
+      const imgViewer = document.getElementById('imageViewer');
+      const pdfCanvas = document.getElementById('pdfCanvas');
+
+      imgViewer.style.display = 'none';
+      pdfCanvas.style.display = 'none';
+
+      const file = task.file;
+      const reader = new FileReader();
+
+      if (file.type.includes('image') || file.name.match(/\.(jpg|jpeg|png)$/i)) {
+        reader.onload = (e) => {
+          imgViewer.src = e.target.result;
+          imgViewer.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+      } else if (file.type.includes('pdf') || file.name.endsWith('.pdf')) {
+        reader.onload = async (e) => {
+          const typedarray = new Uint8Array(e.target.result);
+          if (window.pdfjsLib) {
+            try {
+              currentPdfDoc = await window.pdfjsLib.getDocument(typedarray).promise;
+              const page = await currentPdfDoc.getPage(1); // 先預覽第一頁
+              const viewport = page.getViewport({ scale: 1.5 });
+              const canvas = pdfCanvas;
+              const context = canvas.getContext('2d');
+              canvas.height = viewport.height;
+              canvas.width = viewport.width;
+
+              const renderContext = { canvasContext: context, viewport: viewport };
+              await page.render(renderContext).promise;
+              pdfCanvas.style.display = 'block';
+            } catch (err) {
+              console.error("PDF.js 渲染錯誤:", err);
+            }
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      }
+    }
+
+    // 替換為正式 PDF 檔 (手機現場拍照後，電腦端替換電子 PDF 原檔)
+    function replaceWithPdf() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.pdf';
+      input.onchange = (e) => {
+        if (e.target.files && e.target.files[0]) {
+          const newFile = e.target.files[0];
+          const task = tasks.find(t => t.id === currentTaskId);
+          if (task) {
+            task.file = newFile;
+            task.name = newFile.name;
+            task.size = (newFile.size / 1024).toFixed(1) + ' KB';
+            task.type = 'application/pdf';
+            renderQueue();
+            selectTask(currentTaskId);
+            showToast('✅ 已替換為正式電子 PDF 檔', 'success');
+          }
+        }
+      };
+      input.click();
+    }
+
+    // 核心 AI 辨識邏輯 (純前端呼叫 Gemini 2.5 Flash)
+    async function processCurrentTask() {
+      if (!currentTaskId) {
+        showToast('請先選取一份文件', 'danger');
+        return;
+      }
+      const task = tasks.find(t => t.id === currentTaskId);
+      if (!task) return;
+
+      const key = apiKey || document.getElementById('geminiApiKey').value.trim();
+      if (!key) {
+        showToast('請先於頂部填寫您的 Gemini API Key', 'danger');
+        return;
+      }
+
+      task.status = 'processing';
+      renderQueue();
+      showToast(`正在辨識: ${task.name}...`, 'info');
+
+      try {
+        const base64Data = await fileToBase64(task.file);
+        const mimeType = task.file.type || (task.name.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
+
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
+        const payload = {
+          contents: [{
+            parts: [
+              { text: COA_PROMPT },
+              {
+                inlineData: {
+                  mimeType: mimeType,
+                  data: base64Data
+                }
+              }
+            ]
+          }],
+          generationConfig: {
+            responseMimeType: "application/json"
+          }
+        };
+
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.error?.message || "HTTP " + res.status);
+        }
+
+        const data = await res.json();
+        const jsonText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        const result = JSON.parse(jsonText);
+
+        task.extractedData = result;
+        task.status = 'completed';
+        renderQueue();
+        fillFormFields(result);
+        showToast(`🎉 ${task.name} 辨識成功！`, 'success');
+
+      } catch (err) {
+        console.error("辨識錯誤:", err);
+        task.status = 'error';
+        renderQueue();
+        showToast(`❌ 辨識失敗: ${err.message}`, 'danger');
+      }
+    }
+
+    async function processAllPending() {
+      const pendingTasks = tasks.filter(t => t.status === 'pending');
+      if (pendingTasks.length === 0) {
+        showToast('佇列中沒有待辨識的文件', 'info');
+        return;
+      }
+
+      for (const t of pendingTasks) {
+        selectTask(t.id);
+        await processCurrentTask();
+        // 延遲 1 秒以符合免費用戶每分鐘速率限制 (RPM)
+        await new Promise(r => setTimeout(r, 1000));
+      }
+      showToast('⚡ 批次辨識任務已全數完成！', 'success');
+    }
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => {
+          const base64 = reader.result.split(',')[1];
+          resolve(base64);
+        };
+        reader.onerror = error => reject(error);
+      });
+    }
+
+    // 表單填寫與自訂修改
+    function fillFormFields(data) {
+      document.getElementById('field_brand').value = data.brand || '';
+      document.getElementById('field_product').value = data.product_name || '';
+      document.getElementById('field_cas').value = data.cas_number || '';
+      document.getElementById('field_batch').value = data.batch_number || '';
+      document.getElementById('field_purity').value = data.purity || '';
+      document.getElementById('field_expiry').value = data.expiry_date || '';
+      document.getElementById('field_amount').value = data.amount || '';
+      document.getElementById('field_mw').value = data.molecular_weight || '';
+      document.getElementById('field_storage').value = data.storage_condition || '';
+      document.getElementById('field_notes').value = data.notes || '';
+
+      setJudgment(data.judgment || 'PASS');
+    }
+
+    function clearFormFields() {
+      ['field_brand','field_product','field_cas','field_batch','field_purity','field_expiry','field_amount','field_mw','field_storage','field_notes'].forEach(id => {
+        document.getElementById(id).value = '';
+      });
+      setJudgment('PASS');
+    }
+
+    function setJudgment(val) {
+      const v = (val || 'PASS').toUpperCase();
+      ['judgePass', 'judgeBorder', 'judgeFail'].forEach(id => {
+        document.getElementById(id).className = 'judgment-option';
+      });
+
+      if (v.includes('PASS') || v.includes('合格')) {
+        document.getElementById('judgePass').className = 'judgment-option selected-pass';
+      } else if (v.includes('BORDER') || v.includes('REVIEW') || v.includes('風險')) {
+        document.getElementById('judgeBorder').className = 'judgment-option selected-border';
+      } else {
+        document.getElementById('judgeFail').className = 'judgment-option selected-fail';
+      }
+    }
+
+    function getSelectedJudgment() {
+      if (document.getElementById('judgePass').classList.contains('selected-pass')) return 'PASS';
+      if (document.getElementById('judgeBorder').classList.contains('selected-border')) return 'BORDERLINE';
+      return 'FAIL';
+    }
+
+    function getCurrentFormRecord() {
+      return {
+        brand: document.getElementById('field_brand').value.trim(),
+        product_name: document.getElementById('field_product').value.trim(),
+        cas_number: document.getElementById('field_cas').value.trim(),
+        batch_number: document.getElementById('field_batch').value.trim(),
+        purity: document.getElementById('field_purity').value.trim(),
+        expiry_date: document.getElementById('field_expiry').value.trim(),
+        amount: document.getElementById('field_amount').value.trim(),
+        molecular_weight: document.getElementById('field_mw').value.trim(),
+        storage_condition: document.getElementById('field_storage').value.trim(),
+        judgment: getSelectedJudgment(),
+        notes: document.getElementById('field_notes').value.trim(),
+        file_name: tasks.find(t => t.id === currentTaskId)?.name || 'COA_Document'
+      };
+    }
+
+    // 匯出 CSV 檔 (含 UTF-8 BOM 防止 Windows Excel 亂碼)
+    function exportCurrentCsv() {
+      const record = getCurrentFormRecord();
+      if (!record.product_name && !record.batch_number) {
+        showToast('當前表單無資料可匯出', 'danger');
+        return;
+      }
+      downloadCsv([record], `COA_${record.batch_number || 'Single'}.csv`);
+    }
+
+    function exportAllCsv() {
+      const records = [];
+      tasks.forEach(t => {
+        if (t.extractedData) {
+          records.push({
+            brand: t.extractedData.brand || '',
+            product_name: t.extractedData.product_name || '',
+            cas_number: t.extractedData.cas_number || '',
+            batch_number: t.extractedData.batch_number || '',
+            purity: t.extractedData.purity || '',
+            expiry_date: t.extractedData.expiry_date || '',
+            amount: t.extractedData.amount || '',
+            molecular_weight: t.extractedData.molecular_weight || '',
+            storage_condition: t.extractedData.storage_condition || '',
+            judgment: t.extractedData.judgment || 'PASS',
+            notes: t.extractedData.notes || '',
+            file_name: t.name
+          });
+        }
+      });
+
+      if (records.length === 0) {
+        showToast('佇列中尚無已完成辨識的資料', 'danger');
+        return;
+      }
+
+      const today = new Date().toISOString().split('T')[0];
+      downloadCsv(records, `COA_Batch_${today}.csv`);
+    }
+
+    function downloadCsv(dataList, filename) {
+      const headers = ["廠牌 (Brand)", "產品品名 (Product Name)", "CAS Number", "生產批號 (Batch No.)", "純度 (Purity)", "有效期限 (Expiry)", "包裝規格 (Amount)", "分子量 (MW)", "儲存條件 (Storage)", "判定 (Judgment)", "檢驗備註 (Notes)", "原始檔名 (Source File)"];
+      
+      let csvContent = "\uFEFF"; // 加入 UTF-8 BOM
+      csvContent += headers.join(",") + "\r\n";
+
+      dataList.forEach(item => {
+        const row = [
+          `"${(item.brand || '').replace(/"/g, '""')}"`,
+          `"${(item.product_name || '').replace(/"/g, '""')}"`,
+          `"${(item.cas_number || '').replace(/"/g, '""')}"`,
+          `"${(item.batch_number || '').replace(/"/g, '""')}"`,
+          `"${(item.purity || '').replace(/"/g, '""')}"`,
+          `"${(item.expiry_date || '').replace(/"/g, '""')}"`,
+          `"${(item.amount || '').replace(/"/g, '""')}"`,
+          `"${(item.molecular_weight || '').replace(/"/g, '""')}"`,
+          `"${(item.storage_condition || '').replace(/"/g, '""')}"`,
+          `"${(item.judgment || '').replace(/"/g, '""')}"`,
+          `"${(item.notes || '').replace(/"/g, '""')}"`,
+          `"${(item.file_name || '').replace(/"/g, '""')}"`
+        ];
+        csvContent += row.join(",") + "\r\n";
+      });
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast(`✅ 已成功下載 CSV 檔: ${filename}`, 'success');
+    }
+
+    // 一鍵複製為 Notion 格式 (支援貼入 Notion Database 自動對齊)
+    function copyNotionTable() {
+      const r = getCurrentFormRecord();
+      if (!r.product_name && !r.batch_number) {
+        showToast('當前表單無資料可複製', 'danger');
+        return;
+      }
+
+      // 建立 TSV (Tab-Separated) 格式，直接在 Notion Database 按 Ctrl+V 會自動填入各欄位！
+      const tsvText = `${r.brand}\t${r.product_name}\t${r.cas_number}\t${r.batch_number}\t${r.purity}\t${r.expiry_date}\t${r.amount}\t${r.storage_condition}\t${r.judgment}`;
+
+      navigator.clipboard.writeText(tsvText).then(() => {
+        showToast('📋 已複製 Notion 專用格式！至 Notion 按 Ctrl+V 即可直接貼入', 'success');
+      }).catch(err => {
+        showToast('複製失敗，請手動複製', 'danger');
+      });
+    }
+
+    // 手機版頁籤切換
+    function switchMobileTab(tab) {
+      document.getElementById('tabBtnPreview').className = `tab-btn ${tab === 'preview' ? 'active' : ''}`;
+      document.getElementById('tabBtnForm').className = `tab-btn ${tab === 'form' ? 'active' : ''}`;
+
+      if (tab === 'preview') {
+        document.getElementById('previewPanel').classList.remove('mobile-hidden');
+        document.getElementById('formPanel').classList.add('mobile-hidden');
+      } else {
+        document.getElementById('previewPanel').classList.add('mobile-hidden');
+        document.getElementById('formPanel').classList.remove('mobile-hidden');
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

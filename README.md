@@ -28,6 +28,16 @@
 * **雲端即時同步**：支援串接 Google Sheet (GAS) 雲端資料庫。
 * 支援管理與排序介面：可修改各里程碑的名稱、目標日期，或將項目刪除。提供 **▲ 上移** 與 **▼ 下移** 排序功能。
 
+### 4. 🔬 COA 檢驗報告書 AI 智慧辨識中心 (`coa-parser.html`)
+專為原料驗收與標準品檢驗設計的輕量純前端 AI 提取工具：
+* **BYOK 自帶金鑰**：支援同仁各自輸入免費 Gemini API Key，本地加密儲存於各瀏覽器，互不干擾、零資安外洩疑慮。
+* **PDF 與 JPG 全格式批次匯入**：支援拖曳多份電子版 PDF、紙本掃描 JPG/PNG，提供佇列清單依序批次處理。
+* **手機現場拍照即驗**：支援 RWD 響應式佈局與後置相機直拍 (`capture="environment"`)，倉庫現場開箱即拍即驗。
+* **電腦端接力與替換 PDF**：現場拍照記錄後，可回辦公室電腦點擊「替換正式 PDF」更新高清電子原檔。
+* **雙模式結果匯出**：
+  - **📥 下載 CSV**：內建 UTF-8 BOM，在 Windows Excel 點開繁體中文 100% 正常不亂碼。
+  - **📋 複製為 Notion 格式**：一鍵複製 TSV/Markdown，直接至 Notion Database 或筆記按 `Ctrl+V` 即自動對齊填入！
+
 ---
 
 ## ☁️ 雲端即時同步部署指南 (Google Sheets GAS)
@@ -79,7 +89,8 @@ notion-lab-widgets/
 ├── widgets/
 │   ├── solution-calculator.html  # 溶液配製與稀釋計算器
 │   ├── instrument-status.html    # 儀器運作狀態看板
-│   └── audit-countdown.html      # 評鑑與認證倒數計時器
+│   ├── audit-countdown.html      # 評鑑與認證倒數計時器
+│   └── coa-parser.html           # COA 檢驗報告書 AI 智慧辨識中心 (BYOK/CSV)
 ├── gas/
 │   ├── instrument-status-gas.gs  # 儀器狀態看板 GAS 程式碼
 │   └── audit-countdown-gas.gs    # 里程碑倒數 GAS 程式碼
