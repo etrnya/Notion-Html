@@ -148,7 +148,8 @@ notion-lab-widgets/
 │   ├── solution-calculator.html  # 溶液配製與稀釋計算器
 │   ├── instrument-status.html    # 儀器運作狀態看板
 │   ├── audit-countdown.html      # 評鑑與認證倒數計時器
-│   └── coa-parser.html           # COA 檢驗報告書 AI 智慧辨識中心 (BYOK/CSV)
+│   ├── coa-parser.html           # COA 檢驗報告書 AI 智慧辨識中心 (主程式)
+│   └── coa-parser-v1-stable.html # COA 檢驗報告書 v1.0 封存穩定版 (雙軌備份)
 ├── gas/
 │   ├── instrument-status-gas.gs  # 儀器狀態看板 GAS 程式碼
 │   └── audit-countdown-gas.gs    # 里程碑倒數 GAS 程式碼
