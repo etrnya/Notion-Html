@@ -165,6 +165,92 @@
     }
     .btn-danger { background-color: var(--danger); color: #fff; }
 
+    /* API 教學與錯誤診斷面板樣式 */
+    .collapsible-panel {
+      background-color: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      box-shadow: var(--shadow);
+      animation: slideDown 0.2s ease;
+    }
+
+    .tutorial-steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 10px;
+    }
+
+    .tutorial-step-card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .step-badge {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--primary);
+      text-transform: uppercase;
+    }
+
+    .step-title {
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .step-desc {
+      font-size: 11px;
+      color: var(--text-sub);
+      line-height: 1.4;
+    }
+
+    .error-console-box {
+      background-color: #181111;
+      border: 1px solid rgba(248, 81, 73, 0.4);
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .error-console-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .error-console-title {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--danger);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .error-code-pre {
+      background-color: #0d0d0d;
+      border: 1px solid #332222;
+      border-radius: 5px;
+      padding: 8px 10px;
+      font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 11px;
+      color: #ff8580;
+      overflow-x: auto;
+      max-height: 180px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
     /* 批次任務佇列欄 */
     .queue-bar {
       background-color: var(--panel-bg);
@@ -551,11 +637,72 @@
         </div>
       </div>
       <div class="api-config-bar">
+        <select id="modelSelector" class="api-key-input" style="width: 175px;" onchange="saveModelChoice()">
+          <option value="gemini-3.8-flash" selected>gemini-3.8-flash (預設推薦)</option>
+          <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+          <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+        </select>
         <input type="password" id="geminiApiKey" class="api-key-input" placeholder="貼上您的 Gemini API Key (BYOK)...">
         <button class="btn btn-primary" onclick="saveApiKey()">儲存金鑰</button>
         <button class="btn btn-secondary" onclick="testApiConnection()">⚡ 測試連線</button>
+        <button class="btn btn-secondary" onclick="toggleTutorial()">📘 申請教學</button>
+        <button class="btn btn-secondary" id="btnToggleError" onclick="toggleErrorConsole()" style="display:none; color:var(--danger); border-color:var(--danger);">🐞 檢視錯誤</button>
       </div>
     </header>
+
+    <!-- API 金鑰申請指引面板 -->
+    <div class="collapsible-panel" id="apiKeyTutorial">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:13px; font-weight:700;">🔑 Google Gemini API 金鑰免費申請教學 (30 秒搞定)</span>
+        <button class="btn btn-secondary" onclick="toggleTutorial()" style="padding:2px 8px;">✕ 關閉</button>
+      </div>
+      <div class="tutorial-steps">
+        <div class="tutorial-step-card">
+          <span class="step-badge">Step 1</span>
+          <span class="step-title">前往 Google AI Studio</span>
+          <span class="step-desc">
+            點擊連結 <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" style="color:var(--primary); font-weight:bold; text-decoration:underline;">aistudio.google.com/app/apikey</a>，使用您的個人或工作 Google 帳號登入。
+          </span>
+        </div>
+        <div class="tutorial-step-card">
+          <span class="step-badge">Step 2</span>
+          <span class="step-title">建立 API Key</span>
+          <span class="step-desc">
+            點擊藍色按鈕 <strong>「Create API key」</strong>（或「Get API key」），選擇預設的 Google Cloud 專案即可免費生成一組金鑰。
+          </span>
+        </div>
+        <div class="tutorial-step-card">
+          <span class="step-badge">Step 3</span>
+          <span class="step-title">複製並貼入小工具</span>
+          <span class="step-desc">
+            點擊 Copy 複製以 <code>AIzaSy...</code> 開頭的字串，貼回上方輸入框並點選 <strong>「儲存金鑰」</strong>。
+          </span>
+        </div>
+      </div>
+      <div style="font-size:11px; color:var(--text-sub); line-height:1.4; background:var(--badge-bg); padding:6px 10px; border-radius:6px;">
+        💡 <strong>資安保障提示</strong>：金鑰僅加密保存在您目前使用的瀏覽器 LocalStorage，<strong>絕不回傳任何外部伺服器</strong>，不同同仁電腦完全獨立！Google 免費用戶每日皆有免費額度供日常驗收使用。
+      </div>
+    </div>
+
+    <!-- 持久化錯誤代碼檢視與複製控制台 -->
+    <div class="collapsible-panel" id="errorConsole">
+      <div class="error-console-box">
+        <div class="error-console-header">
+          <span class="error-console-title">
+            <span>⚠️ API 連線或辨識錯誤診斷</span>
+            <span id="errorCodeBadge" style="font-size:10px; background:rgba(248,81,73,0.2); padding:1px 6px; border-radius:4px;"></span>
+          </span>
+          <div style="display:flex; gap:6px;">
+            <button class="btn btn-secondary" onclick="copyErrorMessage()" style="padding:3px 8px; font-size:11px;">📋 複製完整錯誤訊息</button>
+            <button class="btn btn-secondary" onclick="toggleErrorConsole()" style="padding:3px 8px; font-size:11px;">✕ 收合</button>
+          </div>
+        </div>
+        <pre class="error-code-pre" id="errorCodeContent">尚未發生錯誤。</pre>
+        <div style="font-size:10.5px; color:var(--text-sub);">
+          ※ 若顯示 404/400 錯誤，通常為模型名稱變更或 API Key 無權限；可點選「複製完整錯誤訊息」回報，或嘗試切換頂部模型名稱。
+        </div>
+      </div>
+    </div>
 
     <!-- 批次任務佇列列 -->
     <section class="queue-bar">
@@ -780,11 +927,82 @@ Return pure JSON only.`;
         if (apiKey) {
           document.getElementById('geminiApiKey').value = apiKey;
         }
+        const savedModel = localStorage.getItem('gemini_model_coa');
+        if (savedModel && document.getElementById('modelSelector')) {
+          document.getElementById('modelSelector').value = savedModel;
+        }
       } catch (e) {
-        console.warn("無法讀取 LocalStorage API Key");
+        console.warn("無法讀取 LocalStorage 設定");
       }
 
       setupDragAndDrop();
+    }
+
+    function saveModelChoice() {
+      const model = document.getElementById('modelSelector').value;
+      try {
+        localStorage.setItem('gemini_model_coa', model);
+        showToast(`已切換模型為: ${model}`, 'info');
+      } catch (e) {}
+    }
+
+    function toggleTutorial() {
+      const panel = document.getElementById('apiKeyTutorial');
+      if (panel.classList.contains('show')) {
+        panel.classList.remove('show');
+      } else {
+        panel.classList.add('show');
+      }
+    }
+
+    function toggleErrorConsole() {
+      const panel = document.getElementById('errorConsole');
+      if (panel.classList.contains('show')) {
+        panel.classList.remove('show');
+      } else {
+        panel.classList.add('show');
+      }
+    }
+
+    function showErrorConsole(statusCode, errorData) {
+      const panel = document.getElementById('errorConsole');
+      const badge = document.getElementById('errorCodeBadge');
+      const content = document.getElementById('errorCodeContent');
+      const btnToggle = document.getElementById('btnToggleError');
+
+      if (badge) badge.innerText = `HTTP ${statusCode || 'ERR'}`;
+      if (btnToggle) btnToggle.style.display = 'inline-flex';
+
+      let formattedText = "";
+      if (typeof errorData === 'object') {
+        try {
+          formattedText = JSON.stringify(errorData, null, 2);
+        } catch (e) {
+          formattedText = String(errorData);
+        }
+      } else {
+        formattedText = String(errorData);
+      }
+
+      const timestamp = new Date().toLocaleTimeString();
+      const currentModel = document.getElementById('modelSelector')?.value || 'gemini-3.8-flash';
+      content.innerText = `[${timestamp}] Model: ${currentModel} | Status: ${statusCode || 'Unknown'}\n\n${formattedText}`;
+
+      // 自動展開錯誤面板供使用者即時複製
+      panel.classList.add('show');
+    }
+
+    function copyErrorMessage() {
+      const text = document.getElementById('errorCodeContent').innerText;
+      if (!text || text === '尚未發生錯誤。') {
+        showToast('目前無錯誤內容可複製', 'info');
+        return;
+      }
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('📋 已複製錯誤代碼至剪貼簿！可直接貼給工程人員分析', 'success');
+      }).catch(err => {
+        showToast('複製失敗，請手動圈選複製', 'danger');
+      });
     }
 
     function showToast(message, type = 'info') {
@@ -820,8 +1038,9 @@ Return pure JSON only.`;
         return;
       }
 
-      showToast('🔄 正在測試連線至 Google Gemini API...', 'info');
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
+      const selectedModel = document.getElementById('modelSelector')?.value || 'gemini-3.8-flash';
+      showToast(`🔄 正在測試連線至 Google Gemini API (${selectedModel})...`, 'info');
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${key}`;
       
       try {
         const res = await fetch(url, {
@@ -832,16 +1051,28 @@ Return pure JSON only.`;
           })
         });
 
+        const rawText = await res.text();
+        let parsedData = null;
+        try {
+          parsedData = JSON.parse(rawText);
+        } catch (e) {
+          parsedData = rawText;
+        }
+
         if (res.ok) {
-          showToast('🟢 連線成功！Gemini 2.5 Flash 已就緒', 'success');
+          showToast(`🟢 連線成功！${selectedModel} 已就緒`, 'success');
           apiKey = key;
           try { localStorage.setItem('gemini_api_key_coa', apiKey); } catch(e){}
         } else {
-          const err = await res.json();
-          throw new Error(err.error?.message || "HTTP " + res.status);
+          showErrorConsole(res.status, parsedData);
+          const errMsg = parsedData?.error?.message || `HTTP ${res.status}`;
+          throw new Error(errMsg);
         }
       } catch (e) {
-        showToast('❌ 連線失敗: ' + e.message, 'danger');
+        showToast(`❌ 連線失敗: ${e.message}`, 'danger');
+        if (!document.getElementById('errorCodeContent').innerText.includes(e.message)) {
+          showErrorConsole('CONN_ERR', e.message);
+        }
       }
     }
 
@@ -1026,7 +1257,7 @@ Return pure JSON only.`;
       input.click();
     }
 
-    // 核心 AI 辨識邏輯 (純前端呼叫 Gemini 2.5 Flash)
+    // 核心 AI 辨識邏輯 (純前端呼叫 Gemini API)
     async function processCurrentTask() {
       if (!currentTaskId) {
         showToast('請先選取一份文件', 'danger');
@@ -1041,15 +1272,16 @@ Return pure JSON only.`;
         return;
       }
 
+      const selectedModel = document.getElementById('modelSelector')?.value || 'gemini-3.8-flash';
       task.status = 'processing';
       renderQueue();
-      showToast(`正在辨識: ${task.name}...`, 'info');
+      showToast(`正在辨識: ${task.name} (${selectedModel})...`, 'info');
 
       try {
         const base64Data = await fileToBase64(task.file);
         const mimeType = task.file.type || (task.name.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
 
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${key}`;
         const payload = {
           contents: [{
             parts: [
@@ -1073,12 +1305,21 @@ Return pure JSON only.`;
           body: JSON.stringify(payload)
         });
 
-        if (!res.ok) {
-          const errData = await res.json();
-          throw new Error(errData.error?.message || "HTTP " + res.status);
+        const rawText = await res.text();
+        let parsedData = null;
+        try {
+          parsedData = JSON.parse(rawText);
+        } catch (e) {
+          parsedData = rawText;
         }
 
-        const data = await res.json();
+        if (!res.ok) {
+          showErrorConsole(res.status, parsedData);
+          const errMsg = parsedData?.error?.message || `HTTP ${res.status}`;
+          throw new Error(errMsg);
+        }
+
+        const data = parsedData;
         const jsonText = data.candidates?.[0]?.content?.parts?.[0]?.text;
         const result = JSON.parse(jsonText);
 
@@ -1093,6 +1334,9 @@ Return pure JSON only.`;
         task.status = 'error';
         renderQueue();
         showToast(`❌ 辨識失敗: ${err.message}`, 'danger');
+        if (!document.getElementById('errorCodeContent').innerText.includes(err.message)) {
+          showErrorConsole('TASK_ERR', err.message);
+        }
       }
     }
 
